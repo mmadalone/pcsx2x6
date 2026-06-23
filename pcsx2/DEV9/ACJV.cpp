@@ -730,6 +730,11 @@ void do_jvs_packet(const u8* input, u8* output) {
 		u8 cmd = (*input++);
 		inSize--;
 		inWorkChecksum += cmd;
+		{ // JVSDIAG: log each unique (node,cmd) once -> maps bus enumeration + read pattern
+			static bool s_diag_seen[8][256] = {};
+			const u8 dn = inDest & 0x07;
+			if (!s_diag_seen[dn][cmd]) { s_diag_seen[dn][cmd] = true; Console.WriteLn("JVSDIAG cmd node=0x%02X cmd=0x%02X", inDest, cmd); }
+		}
 		switch(cmd) {
 		case JVS::RESET: {
 			JVS_ASSERT(inSize != 0);
@@ -757,6 +762,7 @@ void do_jvs_packet(const u8* input, u8* output) {
 			u8 param = (*input++);
 			inSize--;
 			inWorkChecksum += param;
+			Console.WriteLn("JVSDIAG set_node_address node=0x%02X -> addr=%u", inDest, param);
 			(*output++) = JVS_CMD_SUCCESS;
 			(*dstSize)++;
 		}
@@ -1020,9 +1026,10 @@ void do_jvs_packet(const u8* input, u8* output) {
 			// (channel == player) so the ch->player ordering can be validated for 2P.
 			if (m_jvsMode == JVS_MODE::LIGHTGUN)
 			{
-				static u32 s_screenpos_log = 0;
-				if ((s_screenpos_log++ % 120) == 0)
-					Console.WriteLn("ACJV: READ_INP_SCREENPOS channel=%u (ch->player)", channel);
+				// JVSDIAG: log each unique (node,channel) screenpos read once
+				static bool s_sp_seen[8][8] = {};
+				const u8 dn = inDest & 0x07, cc = channel & 0x07;
+				if (!s_sp_seen[dn][cc]) { s_sp_seen[dn][cc] = true; Console.WriteLn("JVSDIAG screenpos node=0x%02X channel=%u", inDest, channel); }
 			}
 
 			if(m_jvsMode == JVS_MODE::LIGHTGUN)
