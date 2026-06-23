@@ -5,6 +5,9 @@
 #include "ImGui/ImGuiManager.h"
 #include "Input/InputManager.h"
 #include "Input/InputSource.h"
+#if defined(__linux__)
+#include "Input/EvdevLightgun.h"
+#endif
 #include "SIO/Pad/Pad.h"
 #include "SIO/Sio.h"
 #include "USB/USB.h"
@@ -1780,6 +1783,12 @@ void InputManager::PollSources()
 		if (s_input_sources[i]->IsInitialized())
 			s_input_sources[i]->PollEvents();
 	}
+
+#if defined(__linux__)
+	// Direct evdev lightgun feed (Sinden): supplies pointer 0's absolute position
+	// when the compositor (gamescope) won't deliver it, bypassing the Qt cursor.
+	EvdevLightgun::Poll();
+#endif
 
 	GenerateRelativeMouseEvents();
 

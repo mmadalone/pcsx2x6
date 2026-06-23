@@ -910,6 +910,7 @@ endif()
 set(pcsx2LinuxSources
 	CDVD/Linux/DriveUtility.cpp
 	CDVD/Linux/IOCtlSrc.cpp
+	Input/EvdevLightgun.cpp
 	)
 
 set(pcsx2OSXSources
@@ -924,6 +925,7 @@ set(pcsx2FreeBSDSources
 
 # Linux headers
 set(pcsx2LinuxHeaders
+	Input/EvdevLightgun.h
 	)
 
 # ps2 sources

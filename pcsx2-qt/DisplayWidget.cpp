@@ -8,6 +8,9 @@
 
 #include "pcsx2/ImGui/FullscreenUI.h"
 #include "pcsx2/ImGui/ImGuiManager.h"
+#if defined(__linux__)
+#include "pcsx2/Input/EvdevLightgun.h"
+#endif
 
 #include "common/Assertions.h"
 #include "common/Console.h"
@@ -309,7 +312,13 @@ bool DisplaySurface::event(QEvent* event)
 
 				const float scaled_x = static_cast<float>(static_cast<qreal>(mouse_pos.x()) * dpr);
 				const float scaled_y = static_cast<float>(static_cast<qreal>(mouse_pos.y()) * dpr);
-				InputManager::UpdatePointerAbsolutePosition(0, scaled_x, scaled_y);
+#if defined(__linux__)
+				// When the direct evdev lightgun source is active it is the sole
+				// authoritative writer of pointer 0 -- don't fight it with the
+				// (under gamescope, stale) Qt cursor position.
+				if (!EvdevLightgun::IsActive())
+#endif
+					InputManager::UpdatePointerAbsolutePosition(0, scaled_x, scaled_y);
 			}
 			else
 			{
