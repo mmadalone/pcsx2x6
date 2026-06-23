@@ -200,6 +200,7 @@ namespace EvdevLightgun
 			Slot& s = s_slots[idx];
 			input_event ev[32];
 			bool pos_changed = false;
+			int dbg_evs = 0; // EVDEVLOG: count of events drained this poll
 			for (;;)
 			{
 				const ssize_t n = read(s.fd, ev, sizeof(ev));
@@ -216,6 +217,7 @@ namespace EvdevLightgun
 				}
 
 				const size_t count = static_cast<size_t>(n) / sizeof(input_event);
+				dbg_evs += static_cast<int>(count); // EVDEVLOG
 				for (size_t i = 0; i < count; i++)
 				{
 					if (ev[i].type == EV_ABS)
@@ -256,6 +258,14 @@ namespace EvdevLightgun
 						}
 					}
 				}
+			}
+
+			{ // EVDEVLOG (input thread, not JVS timing): per-slot drain result, throttled ~2/sec
+				static u32 s_dbgn[2] = {};
+				if (idx < 2 && (s_dbgn[idx]++ % 30) == 0)
+					Console.WriteLn("EVDEVLOG slot=%u evs=%d pos_changed=%d last=(%d,%d) open=%d",
+						idx, dbg_evs, pos_changed ? 1 : 0, s.last_x, s.last_y,
+						s_open_count.load(std::memory_order_relaxed));
 			}
 
 			if (!pos_changed || s.fd < 0 || s.last_x < 0 || s.last_y < 0)
