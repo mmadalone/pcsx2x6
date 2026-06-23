@@ -89,13 +89,14 @@ namespace EvdevLightgun
 		}
 
 		// Read an ABS axis range; false if the device lacks the axis or it is degenerate.
-		bool readAbs(int fd, int axis, int& mn, int& mx)
+		bool readAbs(int fd, int axis, int& mn, int& mx, int& cur)
 		{
 			input_absinfo ai = {};
 			if (ioctl(fd, EVIOCGABS(axis), &ai) < 0)
 				return false;
 			mn = ai.minimum;
 			mx = ai.maximum;
+			cur = ai.value;
 			return mx > mn;
 		}
 
@@ -106,8 +107,8 @@ namespace EvdevLightgun
 			if (fd < 0)
 				return false;
 
-			int mnx, mxx, mny, mxy;
-			if (!readAbs(fd, ABS_X, mnx, mxx) || !readAbs(fd, ABS_Y, mny, mxy))
+			int mnx, mxx, mny, mxy, curx = -1, cury = -1;
+			if (!readAbs(fd, ABS_X, mnx, mxx, curx) || !readAbs(fd, ABS_Y, mny, mxy, cury))
 			{
 				// Not an absolute pointing device -- ignore.
 				close(fd);
@@ -120,8 +121,13 @@ namespace EvdevLightgun
 			s.max_x = mxx;
 			s.min_y = mny;
 			s.max_y = mxy;
-			s.last_x = -1;
-			s.last_y = -1;
+			// Prime last_x/last_y from the device's CURRENT absolute position (EVIOCGABS value)
+			// so the pointer is fed on the first event for EITHER axis, instead of being stranded
+			// at (0,0) until BOTH axes have each emitted an event. A lightgun's Y can be late/sparse
+			// (player sweeps horizontally first), which otherwise leaves that pointer (e.g. P2) dead
+			// with no crosshair. Clamp into range in case the driver reports a stale value.
+			s.last_x = (curx >= mnx && curx <= mxx) ? curx : mnx;
+			s.last_y = (cury >= mny && cury <= mxy) ? cury : mny;
 			s.last_buttons = 0;
 			s_open_count.fetch_add(1, std::memory_order_relaxed);
 			Console.WriteLn("EvdevLightgun: slot %u opened %s (ABS_X %d..%d, ABS_Y %d..%d)", idx, path, mnx, mxx, mny, mxy);
