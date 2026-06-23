@@ -1044,31 +1044,32 @@ void do_jvs_packet(const u8* input, u8* output) {
 			// - MIU-I/O (TC3): native 640x224, Y inverted (bottom-up)
 			// - RAYS PCB (TC4, Cobra, VPN): full 16-bit range 0xFFFF, Y inverted (bottom-up)
 			// pos=0 means off-screen in JVS, so on-screen values are clamped to minimum 1.
-			// COUNT layout: emit `channel` X/Y pairs, pair[ch] = player ch (ch0 = P1/gun1,
-			// ch1 = P2/gun2). EVDEVLOG confirmed the feeder now feeds pointer 1 (gun2) live, and
-			// the on-device "P2 at a distinct FROZEN spot" (P1 on-target, P2 elsewhere) shows
-			// Vampire Night reads the SECOND pair of the channel-2 reply for P2 -- which only the
-			// count layout provides (pair1 = gun2). The 1-indexed/one-pair form gave VN no pair1 ->
-			// P2 dead. Single-player only ever sends channel 1 -> one pair (gun1), unchanged.
+			// [gun2,gun1] REVERSAL experiment: emit `channel` X/Y pairs DESCENDING, so pair[0]
+			// of a channel-N reply is player N-1 (channel 2 -> [gun2, gun1]; channel 1 -> [gun1]).
+			// pair index ch maps to player = channel-1-ch. This is the ONLY pair ordering never
+			// tested with the now-working feeder (the earlier [gun2,gun1] run was feeder-confounded);
+			// it tests whether Vampire Night consumes pair[0] of the channel-2 reply for P2.
+			// Single-player only ever sends channel 1 -> pair0 = player0 = gun1, unchanged.
 			const float scaleX = (ACJV::CurrentBoardID == MIU_IO_JPN_GUN_EXTENTI) ? 640.0f : 0xFFFF;
 			const float scaleY = (ACJV::CurrentBoardID == MIU_IO_JPN_GUN_EXTENTI) ? 224.0f : 0xFFFF;
 			for (u8 ch = 0; ch < channel; ch++)
 			{
+				const int player = static_cast<int>(channel) - 1 - static_cast<int>(ch);
 				u16 posX = 0, posY = 0;
-				if (m_jvsMode == JVS_MODE::LIGHTGUN && ch < JVS_PLAYER_COUNT && m_jvsLightgunDX[ch] >= 0.0f)
+				if (m_jvsMode == JVS_MODE::LIGHTGUN && player >= 0 && player < JVS_PLAYER_COUNT && m_jvsLightgunDX[player] >= 0.0f)
 				{
-					posX = static_cast<u16>(m_jvsLightgunDX[ch] * scaleX);
+					posX = static_cast<u16>(m_jvsLightgunDX[player] * scaleX);
 					if (ACJV::CurrentBoardID == RAYS_PCB || ACJV::CurrentBoardID == MIU_IO_JPN_GUN_EXTENTI)
-						posY = static_cast<u16>((1.0f - m_jvsLightgunDY[ch]) * scaleY);
+						posY = static_cast<u16>((1.0f - m_jvsLightgunDY[player]) * scaleY);
 					else
-						posY = static_cast<u16>(m_jvsLightgunDY[ch] * scaleY);
+						posY = static_cast<u16>(m_jvsLightgunDY[player] * scaleY);
 					if (posX == 0) posX = 1;
 					if (posY == 0) posY = 1;
 				}
 				{ // FULLDIAG: the emitted pair the game receives on this channel/sub-pair, throttled
 					static u32 s_emit = 0;
 					if (m_jvsMode == JVS_MODE::LIGHTGUN && (s_emit++ % 96) < 2)
-						Console.WriteLn("FULLDIAG EMIT ch=%u pair=%u -> X=%u Y=%u", channel, ch, posX, posY);
+						Console.WriteLn("FULLDIAG EMIT ch=%u pair=%u player=%d -> X=%u Y=%u", channel, ch, player, posX, posY);
 				}
 				(*output++) = static_cast<u8>(posX >> 8);
 				(*output++) = static_cast<u8>(posX);

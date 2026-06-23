@@ -16,6 +16,8 @@
 #include "DEV9/ACJV.h"
 
 #include "common/Console.h"
+#include "common/FileSystem.h"
+#include "common/Path.h"
 #include "common/StringUtil.h"
 
 #include <tuple>
@@ -521,6 +523,18 @@ namespace usb_lightgun
 		// Pointer settings.
 		const std::string pointer_binding = USB::GetConfigString(si, s->port, TypeName(), "Pointer", "");
 		std::string cursor_path(USB::GetConfigString(si, s->port, TypeName(), "cursor_path"));
+		// Device-level fallback: a non-primary gun with no cursor of its own inherits the
+		// primary gun's cursor, swapping to a sibling Red.png when one exists alongside it.
+		if (s->port > 0 && cursor_path.empty())
+		{
+			std::string p1_path(USB::GetConfigString(si, 0, TypeName(), "cursor_path"));
+			if (!p1_path.empty())
+			{
+				std::string sibling(Path::Combine(Path::GetDirectory(p1_path), "Red.png"));
+				cursor_path = FileSystem::FileExists(sibling.c_str()) ? std::move(sibling) : std::move(p1_path);
+				Console.WriteLn("CROSSHAIRLOG UpdateSettings port=%u FELL BACK to '%s'", s->port, cursor_path.c_str()); // FULLDIAG
+			}
+		}
 		const float cursor_scale = USB::GetConfigFloat(si, s->port, TypeName(), "cursor_scale", 1.0f);
 		u32 cursor_color = 0xFFFFFF;
 		if (std::string cursor_color_str(USB::GetConfigString(si, s->port, TypeName(), "cursor_color")); !cursor_color_str.empty())
@@ -541,6 +555,13 @@ namespace usb_lightgun
 			USB::ConfigKeyExists(si, s->port, TypeName(), "RelativeDown"));
 
 		const s32 new_pointer_index = s->GetSoftwarePointerIndex();
+
+		// CROSSHAIRLOG: settle the empty-cursor question with the device's OWN reads. The
+		// on-disk [USB2] carries a real cursor_path, so cursor_path='' here would prove an
+		// in-memory layer shadows it; a non-empty path with rel_binds=0 and new_idx=port
+		// proves the read is fine and SetSoftwareCursor must be reached below. FULLDIAG
+		Console.WriteLn("CROSSHAIRLOG UpdateSettings port=%u rel_binds=%d prev_idx=%d new_idx=%d cursor_path='%s'",
+			s->port, static_cast<int>(s->has_relative_binds), prev_pointer_index, new_pointer_index, cursor_path.c_str());
 
 		if (prev_pointer_index != new_pointer_index || s->cursor_path != cursor_path ||
 			s->cursor_scale != cursor_scale || s->cursor_color != cursor_color)
