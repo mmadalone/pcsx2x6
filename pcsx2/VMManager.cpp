@@ -1383,6 +1383,26 @@ bool VMManager::AutoDetectSource(const std::string& filename, Error* error)
 				{
 					Host::SetBaseStringSettingValue("USB1", "Type", "guncon2");
 					Host::SetBaseStringSettingValue("USB2", "Type", "guncon2");
+					// Force-seed the P2 crosshair from P1 so the USB2 guncon2 device registers its
+					// software cursor even when [USB2] guncon2_cursor_path is absent/shadowed in the
+					// layered settings (USB1 resolves it, USB2 frequently does not -> cursor index 1
+					// never registers -> no red crosshair). Prefer a distinct Red.png beside P1's
+					// image; otherwise mirror P1's so SOMETHING registers at index 1.
+					{
+						SettingsInterface* bsi = Host::GetSettingsInterface();
+						const std::string p1_cursor = USB::GetConfigString(*bsi, 0, "guncon2", "cursor_path");
+						const std::string p2_cursor = USB::GetConfigString(*bsi, 1, "guncon2", "cursor_path");
+						if (p2_cursor.empty() && !p1_cursor.empty())
+						{
+							std::string p2_path = Path::Combine(Path::GetDirectory(p1_cursor), "Red.png");
+							if (!FileSystem::FileExists(p2_path.c_str()))
+								p2_path = p1_cursor;
+							Host::SetBaseStringSettingValue("USB2", "guncon2_cursor_path", p2_path.c_str());
+							Host::SetBaseStringSettingValue("USB2", "guncon2_cursor_scale",
+								USB::GetConfigString(*bsi, 1, "guncon2", "cursor_scale", "0.08").c_str());
+							Console.WriteLn("CROSSHAIRLOG VMManager seeded USB2 cursor_path='%s'", p2_path.c_str());
+						}
+					}
 					ACJV::SetMode(JVS_MODE::LIGHTGUN);
 					Console.WriteLn(Color_Green, "ACGAME: jvsmode=lightgun -> GunCon2 on USB1+USB2");
 				}

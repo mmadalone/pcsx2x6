@@ -67,6 +67,7 @@ enum class RacingLayout {
 struct GunMapping {
     u16 pedal;
     u16 sensor;
+    u16 p2_sensor;   // word0 sensor bit for gun 2 (0 = none). EMPIRICAL: must be on-device bit-swept.
     bool sensor_active_high;
     u16 p1_start;
     u16 p2_start;

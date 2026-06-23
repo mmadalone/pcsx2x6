@@ -459,15 +459,15 @@ static float m_wheelGas    = 0.0f; // right trigger (R2)
 static float m_wheelBrake  = 0.0f; // left trigger  (L2)
 
 // Per-game JVS button mapping for lightgun games, keyed by NM game ID (see issue #9).
-// Field order: pedal, sensor, sensor_active_high, p1_start, p2_start, p1_trigger, p2_trigger
+// Field order: pedal, sensor, p2_sensor, sensor_active_high, p1_start, p2_start, p1_trigger, p2_trigger
 // Each value is a JVS bit from JVSButton enum. 0 = not used for this game.
 // This table serves as template for future per-game configs (fighting, driving, drum, etc).
-static const GunMapping s_default_gun_mapping = {JVS_BTN_3, JVS_BTN_RIGHT, false, 0, 0, JVS_BTN_2, 0};
+static const GunMapping s_default_gun_mapping = {JVS_BTN_3, JVS_BTN_RIGHT, 0, false, 0, 0, JVS_BTN_2, 0};
 static const std::map<std::string, GunMapping> s_gun_mappings = {
-	{"NM00003", {0,            0x200,         true,  JVS_BTN_3,  JVS_BTN_6, JVS_BTN_2,    JVS_BTN_5}}, // Vampire Night
-	{"NM00012", {JVS_BTN_6,    0,             false, 0,          0,          JVS_BTN_2,    0}},          // Time Crisis 3
-	{"NM00021", {JVS_BTN_3,    JVS_BTN_RIGHT, false, 0,          0,          JVS_BTN_LEFT, 0}},          // Cobra The Arcade
-	{"NM00032", {JVS_BTN_3,    JVS_BTN_RIGHT, false, 0,          0,          JVS_BTN_LEFT, 0}},          // Time Crisis 4
+	{"NM00003", {0,            0x200,         JVS_BTN_4, true,  JVS_BTN_3,  JVS_BTN_6, JVS_BTN_2,    JVS_BTN_5}}, // Vampire Night; p2_sensor=JVS_BTN_4=0x4000 CANDIDATE (UNVERIFIED free word0 bit)
+	{"NM00012", {JVS_BTN_6,    0,             0,         false, 0,          0,          JVS_BTN_2,    0}},          // Time Crisis 3
+	{"NM00021", {JVS_BTN_3,    JVS_BTN_RIGHT, 0,         false, 0,          0,          JVS_BTN_LEFT, 0}},          // Cobra The Arcade
+	{"NM00032", {JVS_BTN_3,    JVS_BTN_RIGHT, 0,         false, 0,          0,          JVS_BTN_LEFT, 0}},          // Time Crisis 4
 };
 static const GunMapping* m_gunMapping = &s_default_gun_mapping;
 
@@ -690,8 +690,21 @@ static void UpdateLightgunFromMouse()
 			m_jvsScreenPosX[p] = 0;
 			m_jvsScreenPosY[p] = 0;
 		}
-		if (gm.sensor)
-			ACJV::SetButtonState(p, gm.sensor, gm.sensor_active_high ? on_screen : !on_screen);
+		if (p == 0)
+		{
+			if (gm.sensor)
+				ACJV::SetButtonState(0, gm.sensor, gm.sensor_active_high ? on_screen : !on_screen);
+		}
+		else
+		{
+			// P2's on-screen sensor must land in WORD0 -- the only switch word VPN reads (it polls
+			// READ_INP_SWITCH playerCount=1). gm.sensor written via SetButtonState(p=1) goes to word1,
+			// which the game never reads. Use a distinct word0 bit (gm.p2_sensor) instead.
+			if (gm.p2_sensor)
+				ACJV::SetButtonState(0, gm.p2_sensor, gm.sensor_active_high ? on_screen : !on_screen);
+			else if (gm.sensor)
+				ACJV::SetButtonState(p, gm.sensor, gm.sensor_active_high ? on_screen : !on_screen); // legacy: word1
+		}
 	}
 }
 
