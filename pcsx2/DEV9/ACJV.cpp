@@ -1016,15 +1016,6 @@ void do_jvs_packet(const u8* input, u8* output) {
 			inWorkChecksum += channel;
 			inSize--;
 
-			// Diagnostic (throttled): confirm on-device which games issue a 2-channel read
-			// (channel == player) so the ch->player ordering can be validated for 2P.
-			if (m_jvsMode == JVS_MODE::LIGHTGUN)
-			{
-				static u32 s_screenpos_log = 0;
-				if ((s_screenpos_log++ % 120) == 0)
-					Console.WriteLn("ACJV: READ_INP_SCREENPOS channel=%u (ch->player)", channel);
-			}
-
 			if(m_jvsMode == JVS_MODE::LIGHTGUN)
 				UpdateLightgunFromMouse();
 
@@ -1034,33 +1025,34 @@ void do_jvs_packet(const u8* input, u8* output) {
 			// - MIU-I/O (TC3): native 640x224, Y inverted (bottom-up)
 			// - RAYS PCB (TC4, Cobra, VPN): full 16-bit range 0xFFFF, Y inverted (bottom-up)
 			// pos=0 means off-screen in JVS, so on-screen values are clamped to minimum 1.
-			// The JVS 0x25 parameter is a 1-INDEXED CHANNEL number, not a count: the game asks
-			// for one channel and expects EXACTLY ONE X/Y pair back (status + 4 bytes = 5).
-			// Vampire Night polls channel 1 (P1) and channel 2 (P2) in SEPARATE commands, so
-			// returning more than one pair desyncs its response (it reads P1's pair as channel-2
-			// data and the surplus bytes shift the rest). player = channel - 1: ch 1 = P1
-			// (pointer 0), ch 2 = P2 (pointer 1). Single-player only ever sends channel 1, where
-			// the old count-loop also emitted exactly one pair -> byte-identical, no regression.
+			// COUNT layout: emit `channel` X/Y pairs, pair[ch] = player ch (ch0 = P1/gun1,
+			// ch1 = P2/gun2). EVDEVLOG confirmed the feeder now feeds pointer 1 (gun2) live, and
+			// the on-device "P2 at a distinct FROZEN spot" (P1 on-target, P2 elsewhere) shows
+			// Vampire Night reads the SECOND pair of the channel-2 reply for P2 -- which only the
+			// count layout provides (pair1 = gun2). The 1-indexed/one-pair form gave VN no pair1 ->
+			// P2 dead. Single-player only ever sends channel 1 -> one pair (gun1), unchanged.
 			const float scaleX = (ACJV::CurrentBoardID == MIU_IO_JPN_GUN_EXTENTI) ? 640.0f : 0xFFFF;
 			const float scaleY = (ACJV::CurrentBoardID == MIU_IO_JPN_GUN_EXTENTI) ? 224.0f : 0xFFFF;
-			const u8 player = (channel >= 1) ? static_cast<u8>(channel - 1) : 0;
-			u16 posX = 0, posY = 0;
-			if (m_jvsMode == JVS_MODE::LIGHTGUN && player < JVS_PLAYER_COUNT && m_jvsLightgunDX[player] >= 0.0f)
+			for (u8 ch = 0; ch < channel; ch++)
 			{
-				posX = static_cast<u16>(m_jvsLightgunDX[player] * scaleX);
-				if (ACJV::CurrentBoardID == RAYS_PCB || ACJV::CurrentBoardID == MIU_IO_JPN_GUN_EXTENTI)
-					posY = static_cast<u16>((1.0f - m_jvsLightgunDY[player]) * scaleY);
-				else
-					posY = static_cast<u16>(m_jvsLightgunDY[player] * scaleY);
-				if (posX == 0) posX = 1;
-				if (posY == 0) posY = 1;
+				u16 posX = 0, posY = 0;
+				if (m_jvsMode == JVS_MODE::LIGHTGUN && ch < JVS_PLAYER_COUNT && m_jvsLightgunDX[ch] >= 0.0f)
+				{
+					posX = static_cast<u16>(m_jvsLightgunDX[ch] * scaleX);
+					if (ACJV::CurrentBoardID == RAYS_PCB || ACJV::CurrentBoardID == MIU_IO_JPN_GUN_EXTENTI)
+						posY = static_cast<u16>((1.0f - m_jvsLightgunDY[ch]) * scaleY);
+					else
+						posY = static_cast<u16>(m_jvsLightgunDY[ch] * scaleY);
+					if (posX == 0) posX = 1;
+					if (posY == 0) posY = 1;
+				}
+				(*output++) = static_cast<u8>(posX >> 8);
+				(*output++) = static_cast<u8>(posX);
+				(*output++) = static_cast<u8>(posY >> 8);
+				(*output++) = static_cast<u8>(posY);
 			}
-			(*output++) = static_cast<u8>(posX >> 8);
-			(*output++) = static_cast<u8>(posX);
-			(*output++) = static_cast<u8>(posY >> 8);
-			(*output++) = static_cast<u8>(posY);
 
-			(*dstSize) += 1 + 4; // status + ONE X/Y pair
+			(*dstSize) += 1 + (4 * channel); // status + `channel` X/Y pairs
 		}
 		break;
 		// GPIO output — game sends byte values to control physical outputs (e.g. gun recoil solenoids).
