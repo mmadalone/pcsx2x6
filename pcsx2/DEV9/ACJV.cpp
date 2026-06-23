@@ -1044,40 +1044,40 @@ void do_jvs_packet(const u8* input, u8* output) {
 			// - MIU-I/O (TC3): native 640x224, Y inverted (bottom-up)
 			// - RAYS PCB (TC4, Cobra, VPN): full 16-bit range 0xFFFF, Y inverted (bottom-up)
 			// pos=0 means off-screen in JVS, so on-screen values are clamped to minimum 1.
-			// [gun2,gun1] REVERSAL experiment: emit `channel` X/Y pairs DESCENDING, so pair[0]
-			// of a channel-N reply is player N-1 (channel 2 -> [gun2, gun1]; channel 1 -> [gun1]).
-			// pair index ch maps to player = channel-1-ch. This is the ONLY pair ordering never
-			// tested with the now-working feeder (the earlier [gun2,gun1] run was feeder-confounded);
-			// it tests whether Vampire Night consumes pair[0] of the channel-2 reply for P2.
-			// Single-player only ever sends channel 1 -> pair0 = player0 = gun1, unchanged.
+			// JVS 3rd ed. §4.3.15 (daifukkat.su/files/jvs_wip.pdf; corroborated by YAJVSEmu &
+			// TeensyJVS): the `channel` byte is a 1-INDEXED SELECTOR and the reply is EXACTLY ONE
+			// X/Y pair -- NOT a count of N pairs. A 2-gun board advertises channels=2 (FEATCHK
+			// fn 0x06) and the game reads each gun by index: channel 1 -> player 0 (gun1),
+			// channel 2 -> player 1 (gun2). On-device VPN polls channel 1 AND channel 2 SEPARATELY
+			// each frame (122x each) -- which only makes sense as a selector (count would ask
+			// channel=2 once). Our previous COUNT layout returned `channel` pairs, over-running the
+			// channel-2 reply by 4 bytes and desyncing the JVS frame -> P2 inert. Single-player only
+			// ever sends channel 1 -> player 0 (gun1): byte-identical (1 pair, dstSize += 1+4).
 			const float scaleX = (ACJV::CurrentBoardID == MIU_IO_JPN_GUN_EXTENTI) ? 640.0f : 0xFFFF;
 			const float scaleY = (ACJV::CurrentBoardID == MIU_IO_JPN_GUN_EXTENTI) ? 224.0f : 0xFFFF;
-			for (u8 ch = 0; ch < channel; ch++)
+			const int player = static_cast<int>(channel) - 1; // 1-indexed gun selector
+			u16 posX = 0, posY = 0; // 0,0 == off-screen
+			if (m_jvsMode == JVS_MODE::LIGHTGUN && player >= 0 && player < JVS_PLAYER_COUNT && m_jvsLightgunDX[player] >= 0.0f)
 			{
-				const int player = static_cast<int>(channel) - 1 - static_cast<int>(ch);
-				u16 posX = 0, posY = 0;
-				if (m_jvsMode == JVS_MODE::LIGHTGUN && player >= 0 && player < JVS_PLAYER_COUNT && m_jvsLightgunDX[player] >= 0.0f)
-				{
-					posX = static_cast<u16>(m_jvsLightgunDX[player] * scaleX);
-					if (ACJV::CurrentBoardID == RAYS_PCB || ACJV::CurrentBoardID == MIU_IO_JPN_GUN_EXTENTI)
-						posY = static_cast<u16>((1.0f - m_jvsLightgunDY[player]) * scaleY);
-					else
-						posY = static_cast<u16>(m_jvsLightgunDY[player] * scaleY);
-					if (posX == 0) posX = 1;
-					if (posY == 0) posY = 1;
-				}
-				{ // FULLDIAG: the emitted pair the game receives on this channel/sub-pair, throttled
-					static u32 s_emit = 0;
-					if (m_jvsMode == JVS_MODE::LIGHTGUN && (s_emit++ % 96) < 2)
-						Console.WriteLn("FULLDIAG EMIT ch=%u pair=%u player=%d -> X=%u Y=%u", channel, ch, player, posX, posY);
-				}
-				(*output++) = static_cast<u8>(posX >> 8);
-				(*output++) = static_cast<u8>(posX);
-				(*output++) = static_cast<u8>(posY >> 8);
-				(*output++) = static_cast<u8>(posY);
+				posX = static_cast<u16>(m_jvsLightgunDX[player] * scaleX);
+				if (ACJV::CurrentBoardID == RAYS_PCB || ACJV::CurrentBoardID == MIU_IO_JPN_GUN_EXTENTI)
+					posY = static_cast<u16>((1.0f - m_jvsLightgunDY[player]) * scaleY);
+				else
+					posY = static_cast<u16>(m_jvsLightgunDY[player] * scaleY);
+				if (posX == 0) posX = 1;
+				if (posY == 0) posY = 1;
 			}
+			{ // FULLDIAG: the single emitted pair the game receives for this channel, throttled
+				static u32 s_emit = 0;
+				if (m_jvsMode == JVS_MODE::LIGHTGUN && (s_emit++ % 96) < 2)
+					Console.WriteLn("FULLDIAG EMIT ch=%u player=%d -> X=%u Y=%u", channel, player, posX, posY);
+			}
+			(*output++) = static_cast<u8>(posX >> 8);
+			(*output++) = static_cast<u8>(posX);
+			(*output++) = static_cast<u8>(posY >> 8);
+			(*output++) = static_cast<u8>(posY);
 
-			(*dstSize) += 1 + (4 * channel); // status + `channel` X/Y pairs
+			(*dstSize) += 1 + 4; // status + EXACTLY ONE X/Y pair (1-indexed selector, JVS 3rd ed.)
 		}
 		break;
 		// GPIO output — game sends byte values to control physical outputs (e.g. gun recoil solenoids).

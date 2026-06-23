@@ -270,6 +270,16 @@ namespace usb_lightgun
 			{
 				if (p->ep->nr == 1)
 				{
+					{ // FULLDIAG: does VPN actually POLL this gun's USB report, and does its trigger
+					  // toggle? Decides the P2-fire path: if 'port=1' lines appear with trigger toggling
+					  // when gun 2 fires, P2 rides the USB2 GunCon2 report; if port 1 is never polled,
+					  // P2's trigger must be delivered over JVS (switch word1 / playerCount=2). Throttled.
+						static u32 s_usbrd[2] = {0, 0};
+						const u32 pt = (us->port < 2) ? us->port : 0;
+						if ((s_usbrd[pt]++ % 128) < 2)
+							Console.WriteLn("FULLDIAG USBRD port=%u button_state=0x%08X trigger=%d",
+								us->port, us->button_state, (us->button_state & (1u << BID_TRIGGER)) ? 1 : 0);
+					}
 					const auto [pos_x, pos_y] = us->CalculatePosition();
 
 					// Forward mouse position to JVS: on-screen = coords, off-screen = (0,0), update sensor bit
@@ -563,26 +573,36 @@ namespace usb_lightgun
 		Console.WriteLn("CROSSHAIRLOG UpdateSettings port=%u rel_binds=%d prev_idx=%d new_idx=%d cursor_path='%s'",
 			s->port, static_cast<int>(s->has_relative_binds), prev_pointer_index, new_pointer_index, cursor_path.c_str());
 
-		if (prev_pointer_index != new_pointer_index || s->cursor_path != cursor_path ||
-			s->cursor_scale != cursor_scale || s->cursor_color != cursor_color)
-		{
-			if (prev_pointer_index != new_pointer_index)
-				ImGuiManager::ClearSoftwareCursor(prev_pointer_index);
+		// CROSSHAIRLOG GUARD: print the guard inputs (member vs computed) so the next run pins
+		// the crosshair root cause. Diagnosis: port-1's one-shot SetSoftwareCursor dispatch is
+		// lost to the USBopen/GS-open race, and the old change-guard then blocked the round-2
+		// retry (round 1 guard was TRUE via cursor_color 0xFFFFFFFF member vs 0xFFFFFF computed,
+		// so it WAS reached once; round 2 matched -> skipped). FULLDIAG
+		Console.WriteLn("CROSSHAIRLOG GUARD port=%u new_idx=%d member='%s' computed='%s' guard=%d",
+			s->port, new_pointer_index, s->cursor_path.c_str(), cursor_path.c_str(),
+			static_cast<int>(prev_pointer_index != new_pointer_index || s->cursor_path != cursor_path ||
+				s->cursor_scale != cursor_scale || s->cursor_color != cursor_color));
 
-			// Pointer changed, so need to update software cursor.
-			const bool had_software_cursor = !s->cursor_path.empty();
-			s->cursor_path = std::move(cursor_path);
-			s->cursor_scale = cursor_scale;
-			s->cursor_color = cursor_color;
-			if (!s->cursor_path.empty())
-			{
-				ImGuiManager::SetSoftwareCursor(new_pointer_index, s->cursor_path, s->cursor_scale, s->cursor_color);
-				s->UpdateSoftwarePointerPosition();
-			}
-			else if (had_software_cursor)
-			{
-				ImGuiManager::ClearSoftwareCursor(new_pointer_index);
-			}
+		// De-coupled re-assert (no outer change-guard): always re-assert THIS port's software
+		// cursor from the device's own confirmed state. SetSoftwareCursor is idempotent
+		// (ImGuiManager.cpp:1303 dedups identical path+scale -> no texture rebuild), so P1 stays
+		// byte-identical, while slot 1 self-heals on the 2nd UpdateSettings round (t~3.67, GS up)
+		// even if the 1st GS dispatch was lost during USBopen.
+		if (prev_pointer_index != new_pointer_index)
+			ImGuiManager::ClearSoftwareCursor(prev_pointer_index);
+
+		const bool had_software_cursor = !s->cursor_path.empty();
+		s->cursor_path = std::move(cursor_path);
+		s->cursor_scale = cursor_scale;
+		s->cursor_color = cursor_color;
+		if (!s->cursor_path.empty())
+		{
+			ImGuiManager::SetSoftwareCursor(new_pointer_index, s->cursor_path, s->cursor_scale, s->cursor_color);
+			s->UpdateSoftwarePointerPosition();
+		}
+		else if (had_software_cursor)
+		{
+			ImGuiManager::ClearSoftwareCursor(new_pointer_index);
 		}
 	}
 
