@@ -1077,17 +1077,25 @@ void do_jvs_packet(const u8* input, u8* output) {
 			inWorkChecksum += bytecount;
 			inSize--;
 
+			u8 gpbytes[8] = {}; // JVSDIAG
 			for(int i = 1; i <= bytecount; i++)
 			{
 				u8 gpvalue = (*input++);
 				inWorkChecksum += gpvalue;
 				inSize--;
+				if (i <= 8) gpbytes[i - 1] = gpvalue; // JVSDIAG
 
 				if(i == 1)
 				{
 					int p1Recoil = (gpvalue >= 0x50) ? 1 : 0;
 					(void)p1Recoil;
 				}
+			}
+			{ // JVSDIAG: log the first 80 GPIO-output byte-sets -- a gun-LED-select would toggle a byte here
+				static int s_og = 0;
+				if (s_og < 80) { s_og++;
+					Console.WriteLn("JVSDIAG output node=0x%02X n=%u [%02X %02X %02X %02X %02X %02X %02X %02X]",
+						inDest, bytecount, gpbytes[0], gpbytes[1], gpbytes[2], gpbytes[3], gpbytes[4], gpbytes[5], gpbytes[6], gpbytes[7]); }
 			}
 
 			(*output++) = JVS_CMD_SUCCESS;
