@@ -1058,37 +1058,41 @@ void do_jvs_packet(const u8* input, u8* output) {
 			// - MIU-I/O (TC3): native 640x224, Y inverted (bottom-up)
 			// - RAYS PCB (TC4, Cobra, VPN): full 16-bit range 0xFFFF, Y inverted (bottom-up)
 			// pos=0 means off-screen in JVS, so on-screen values are clamped to minimum 1.
-			// JVS 0x25 = 1-INDEXED CHANNEL: return EXACTLY ONE X/Y pair for player = channel-1.
-			// (Research-confirmed: MAME jvshle.cpp index=param-1, one pair; off-screen -> 0 sentinel
-			// which the game ignores. ch 1 = P1 (pointer 0), ch 2 = P2 (pointer 1).)
+			// HYPOTHESIS (CASE A): Vampire Night reads ch=2 expecting `channel` pairs and consumes
+			// pair[0] (the COUNT era proved P2 took pair[0]=gun1). Emit `channel` pairs DESCENDING so
+			// pair[0] = the queried channel's player: ch1 -> [gun1], ch2 -> [gun2, gun1]. ch1 is one
+			// pair => single-player path unchanged.
 			const float scaleX = (ACJV::CurrentBoardID == MIU_IO_JPN_GUN_EXTENTI) ? 640.0f : 0xFFFF;
 			const float scaleY = (ACJV::CurrentBoardID == MIU_IO_JPN_GUN_EXTENTI) ? 224.0f : 0xFFFF;
-			const u8 player = (channel >= 1) ? static_cast<u8>(channel - 1) : 0;
-			u16 posX = 0, posY = 0;
-			if (m_jvsMode == JVS_MODE::LIGHTGUN && player < JVS_PLAYER_COUNT && m_jvsLightgunDX[player] >= 0.0f)
+			for (u8 ch = 0; ch < channel; ch++)
 			{
-				posX = static_cast<u16>(m_jvsLightgunDX[player] * scaleX);
-				if (ACJV::CurrentBoardID == RAYS_PCB || ACJV::CurrentBoardID == MIU_IO_JPN_GUN_EXTENTI)
-					posY = static_cast<u16>((1.0f - m_jvsLightgunDY[player]) * scaleY);
-				else
-					posY = static_cast<u16>(m_jvsLightgunDY[player] * scaleY);
-				if (posX == 0) posX = 1;
-				if (posY == 0) posY = 1;
+				const u8 player = static_cast<u8>(channel - 1 - ch);
+				u16 posX = 0, posY = 0;
+				if (m_jvsMode == JVS_MODE::LIGHTGUN && player < JVS_PLAYER_COUNT && m_jvsLightgunDX[player] >= 0.0f)
+				{
+					posX = static_cast<u16>(m_jvsLightgunDX[player] * scaleX);
+					if (ACJV::CurrentBoardID == RAYS_PCB || ACJV::CurrentBoardID == MIU_IO_JPN_GUN_EXTENTI)
+						posY = static_cast<u16>((1.0f - m_jvsLightgunDY[player]) * scaleY);
+					else
+						posY = static_cast<u16>(m_jvsLightgunDY[player] * scaleY);
+					if (posX == 0) posX = 1;
+					if (posY == 0) posY = 1;
+				}
+				// JVSDIAG: the actual emitted pair (channel, sub-pair index, source player, value)
+				if (m_jvsMode == JVS_MODE::LIGHTGUN)
+				{
+					static u32 s_emit_n = 0;
+					const u32 en = s_emit_n++;
+					if (en < 24 || (en % 48) < 3)
+						Console.WriteLn("JVSDIAG EMIT ch=%u pair=%u player=%u -> X=%u Y=%u", channel, ch, player, posX, posY);
+				}
+				(*output++) = static_cast<u8>(posX >> 8);
+				(*output++) = static_cast<u8>(posX);
+				(*output++) = static_cast<u8>(posY >> 8);
+				(*output++) = static_cast<u8>(posY);
 			}
-			// JVSDIAG: show the actual emitted pair for THIS channel (what the game receives)
-			if (m_jvsMode == JVS_MODE::LIGHTGUN)
-			{
-				static u32 s_emit_n = 0;
-				const u32 en = s_emit_n++;
-				if (en < 16 || (en % 48) < 2)
-					Console.WriteLn("JVSDIAG EMIT ch=%u player=%u -> X=%u Y=%u", channel, player, posX, posY);
-			}
-			(*output++) = static_cast<u8>(posX >> 8);
-			(*output++) = static_cast<u8>(posX);
-			(*output++) = static_cast<u8>(posY >> 8);
-			(*output++) = static_cast<u8>(posY);
 
-			(*dstSize) += 1 + 4; // status + ONE X/Y pair (1-indexed channel)
+			(*dstSize) += 1 + (4 * channel); // status + `channel` X/Y pairs
 		}
 		break;
 		// GPIO output — game sends byte values to control physical outputs (e.g. gun recoil solenoids).
