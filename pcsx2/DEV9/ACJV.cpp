@@ -884,6 +884,18 @@ void do_jvs_packet(const u8* input, u8* output) {
 			inWorkChecksum += byteCount;
 			inSize -= 2;
 
+			// JVSDIAG (throttled): the player count the game asks for + BOTH players' button words
+			// + how many reads requested 2 players. Shows whether P2's trigger (word[1]) is read and
+			// whether m_jvsButtonState[1] actually goes hot when gun 2's trigger is pulled.
+			{
+				static u32 s_sw_pc2 = 0, s_sw_n = 0;
+				if (playerCount == 2) s_sw_pc2++;
+				const u32 n = s_sw_n++;
+				if (n < 16 || (n % 48) == 0)
+					Console.WriteLn("JVSDIAG SW[%u] pc=%u p0=%04X p1=%04X | pc2count=%u",
+						n, playerCount, m_jvsButtonState[0], m_jvsButtonState[1], s_sw_pc2);
+			}
+
 			(*output++) = JVS_CMD_SUCCESS;
 			(*output++) = m_testButtonState|(s_dip_switch_state & TESTMODE);
 			//(*output++) = (m_jvsSystemButtonState == 0x03) ? 0x80 : 0;  //Test
@@ -1022,18 +1034,23 @@ void do_jvs_packet(const u8* input, u8* output) {
 			inWorkChecksum += channel;
 			inSize--;
 
-			// Diagnostic (throttled): confirm on-device which games issue a 2-channel read
-			// (channel == player) so the ch->player ordering can be validated for 2P.
-			if (m_jvsMode == JVS_MODE::LIGHTGUN)
-			{
-				// JVSDIAG: log each unique (node,channel) screenpos read once
-				static bool s_sp_seen[8][8] = {};
-				const u8 dn = inDest & 0x07, cc = channel & 0x07;
-				if (!s_sp_seen[dn][cc]) { s_sp_seen[dn][cc] = true; Console.WriteLn("JVSDIAG screenpos node=0x%02X channel=%u", inDest, channel); }
-			}
-
 			if(m_jvsMode == JVS_MODE::LIGHTGUN)
 				UpdateLightgunFromMouse();
+
+			// JVSDIAG (throttled value trace): the channel the game requested + BOTH players' current
+			// positions + a running histogram of requested channels. Decides index-vs-count and whether
+			// the two guns yield DISTINCT positions (p0 vs p1).
+			if (m_jvsMode == JVS_MODE::LIGHTGUN)
+			{
+				static u32 s_sp_hist[8] = {};
+				static u32 s_sp_n = 0;
+				if (channel < 8) s_sp_hist[channel]++;
+				const u32 n = s_sp_n++;
+				if (n < 16 || (n % 48) == 0)
+					Console.WriteLn("JVSDIAG SP[%u] ch=%u p0(%.3f,%.3f) p1(%.3f,%.3f) | reqhist ch1=%u ch2=%u ch3=%u",
+						n, channel, m_jvsLightgunDX[0], m_jvsLightgunDY[0], m_jvsLightgunDX[1], m_jvsLightgunDY[1],
+						s_sp_hist[1], s_sp_hist[2], s_sp_hist[3]);
+			}
 
 			(*output++) = JVS_CMD_SUCCESS;
 
