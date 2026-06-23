@@ -165,8 +165,8 @@ namespace InputManager
 	/// Minimum interval between vibration updates when the effect is continuous.
 	static constexpr double VIBRATION_UPDATE_INTERVAL_SECONDS = 0.5; // 500ms
 
-	/// Maximum number of host mouse devices.
-	static constexpr u32 MAX_POINTER_DEVICES = 1;
+	/// Maximum number of host mouse devices. 2 enables dual-lightgun (P1=pointer 0, P2=pointer 1).
+	static constexpr u32 MAX_POINTER_DEVICES = 2;
 	static constexpr u32 MAX_POINTER_BUTTONS = 3;
 
 	/// Maximum number of software cursors. We allocate an extra two for USB devices with

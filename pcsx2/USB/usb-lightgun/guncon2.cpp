@@ -272,9 +272,11 @@ namespace usb_lightgun
 
 					// Forward mouse position to JVS: on-screen = coords, off-screen = (0,0), update sensor bit
 					// TODO: use CalculatePosition() result instead of raw mouse, so Relative Aiming (joystick) works for S246
-					if (ACJV::enabled)
+					// Only port 0 forwards here; UpdateLightgunFromMouse is the authoritative
+					// per-player source, so don't let port 1 stamp P2 data into player 0.
+					if (ACJV::enabled && us->port == 0)
 					{
-						const auto& [mx, my] = InputManager::GetPointerAbsolutePosition(0);
+						const auto& [mx, my] = InputManager::GetPointerAbsolutePosition(us->port);
 						float dx, dy;
 						GSTranslateWindowToDisplayCoordinates(mx, my, &dx, &dy);
 						bool on_screen = (dx >= 0.0f && dy >= 0.0f);
@@ -387,7 +389,7 @@ namespace usb_lightgun
 	{
 		float pointer_x, pointer_y;
 		const auto& [window_x, window_y] =
-			(has_relative_binds) ? GetAbsolutePositionFromRelativeAxes() : InputManager::GetPointerAbsolutePosition(0);
+			(has_relative_binds) ? GetAbsolutePositionFromRelativeAxes() : InputManager::GetPointerAbsolutePosition(port);
 		GSTranslateWindowToDisplayCoordinates(window_x, window_y, &pointer_x, &pointer_y);
 
 		s16 pos_x, pos_y;
@@ -441,7 +443,8 @@ namespace usb_lightgun
 
 	u32 GunCon2State::GetSoftwarePointerIndex() const
 	{
-		return has_relative_binds ? (InputManager::MAX_POINTER_DEVICES + port) : 0;
+		// Absolute: this port's crosshair/aim follows its own pointer (P1=0, P2=1).
+		return has_relative_binds ? (InputManager::MAX_POINTER_DEVICES + port) : port;
 	}
 
 	void GunCon2State::UpdateSoftwarePointerPosition()

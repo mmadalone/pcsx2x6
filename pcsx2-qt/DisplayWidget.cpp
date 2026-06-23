@@ -359,6 +359,13 @@ bool DisplaySurface::event(QEvent* event)
 		{
 			if (const u32 button_mask = static_cast<u32>(static_cast<const QMouseEvent*>(event)->button()))
 			{
+#if defined(__linux__)
+				// With TWO guns, the evdev source emits each gun's buttons as its own Pointer-N,
+				// so don't also forward the compositor's merged Pointer-0 click (which would land
+				// both guns' triggers on P1). With one gun, leave the Qt click as the trigger
+				// (the validated single-player path) -- the feeder only feeds position then.
+				if (!EvdevLightgun::IsMultiGun())
+#endif
 				Host::RunOnCPUThread([button_index = std::countr_zero(button_mask),
 										 pressed = (event->type() != QEvent::MouseButtonRelease)]() {
 					InputManager::InvokeEvents(

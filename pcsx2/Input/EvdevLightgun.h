@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "common/Pcsx2Defs.h" // u32
+
 // Direct evdev absolute-pointer source for lightguns (e.g. Sinden) on Linux.
 //
 // Why this exists: under gamescope (Steam Deck Game Mode) the compositor's
@@ -29,15 +31,24 @@
 
 namespace EvdevLightgun
 {
-	// Polled once per frame from InputManager::PollSources(). Cheap no-op when
-	// disabled. Drains pending ABS events and, on change, updates pointer 0's
-	// absolute position in window-pixel space.
+	// Polled once per frame from InputManager::PollSources() on the VM/CPU thread. Cheap
+	// no-op when disabled. Discovers up to two smoothed Sinden guns (P1->pointer 0,
+	// P2->pointer 1) and feeds each one's absolute position -- and, when two guns are
+	// present, its buttons -- directly, bypassing the compositor.
 	void Poll();
 
-	// True once a gun device is open and feeding pointer 0. Used to suppress the
-	// Qt MouseMove absolute update so there is a single authoritative writer.
+	// True once at least one gun device is open. Suppresses the Qt MouseMove absolute
+	// update so the evdev source is the single authoritative position writer.
 	bool IsActive();
 
-	// Close the device (safe to call when never opened).
+	// True once two gun devices are open (2-player). Gates per-device button emission and
+	// suppression of the Qt (compositor) button, so single-player keeps its validated path.
+	bool IsMultiGun();
+
+	// True if slot idx (0=P1, 1=P2) currently has an open device. Queried by ACJV to avoid
+	// a phantom second player when only one gun is connected.
+	bool SlotActive(u32 idx);
+
+	// Close all devices (safe to call when never opened).
 	void Shutdown();
 } // namespace EvdevLightgun

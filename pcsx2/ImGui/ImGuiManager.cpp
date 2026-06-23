@@ -1109,6 +1109,10 @@ void ImGuiManager::UpdateMousePosition(float x, float y)
 
 bool ImGuiManager::ProcessPointerButtonEvent(InputBindingKey key, float value)
 {
+	// Only the primary pointer (index 0) drives ImGui's mouse. Secondary lightguns
+	// (Pointer-1 etc.) must neither feed ImGui nor be swallowed by an open overlay.
+	if (key.source_index != 0)
+		return false;
 	if (!ImGui::GetCurrentContext() || key.data >= std::size(ImGui::GetIO().MouseDown))
 		return false;
 

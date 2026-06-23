@@ -5,6 +5,9 @@
 #include "Config.h"
 #include "Host.h"
 #include "Input/InputManager.h"
+#if defined(__linux__)
+#include "Input/EvdevLightgun.h"
+#endif
 #include "GS/GS.h"
 #include "common/SettingsInterface.h"
 #include <algorithm>
@@ -442,10 +445,11 @@ static u16 m_jvsButtonState[JVS_PLAYER_COUNT] = {};
 static u8 m_testButtonState = 0;
 static u16 m_coin1 = 0;
 static u16 m_coin2 = 0;
-static u16 m_jvsScreenPosX = 0;
-static u16 m_jvsScreenPosY = 0;
-static float m_jvsLightgunDX = -1.0f;  // normalized display X (-1 = off-screen)
-static float m_jvsLightgunDY = -1.0f;  // normalized display Y (-1 = off-screen)
+// Per-player (P1=0, P2=1): dual-Sinden reads each gun's own pointer.
+static u16 m_jvsScreenPosX[JVS_PLAYER_COUNT] = {};
+static u16 m_jvsScreenPosY[JVS_PLAYER_COUNT] = {};
+static float m_jvsLightgunDX[JVS_PLAYER_COUNT] = {-1.0f, -1.0f};  // normalized display X (-1 = off-screen)
+static float m_jvsLightgunDY[JVS_PLAYER_COUNT] = {-1.0f, -1.0f};  // normalized display Y (-1 = off-screen)
 static u16 m_jvsWheelChannels[JVS_WHEEL_CHANNEL_MAX] = {};
 static u16 m_jvsDrumChannels[JVS_DRUM_CHANNEL_MAX] = {};
 
@@ -567,8 +571,9 @@ int ACJV::GetSindenBorderThickness()
 
 void ACJV::SetScreenPos(u16 x, u16 y)
 {
-	m_jvsScreenPosX = x;
-	m_jvsScreenPosY = y;
+	// Legacy guncon2 forwarder (P1 only); overwritten per-player by UpdateLightgunFromMouse.
+	m_jvsScreenPosX[0] = x;
+	m_jvsScreenPosY[0] = y;
 }
 
 // Called from VMManager on game boot. Resets all JVS state and selects per-game I/O config.
@@ -585,10 +590,13 @@ void ACJV::SetGameId(const std::string& gameid)
 	m_jvsButtonState[1] = 0;
 	m_jvsSystemButtonState = 0;
 	m_testButtonState = 0;
-	m_jvsScreenPosX = 0;
-	m_jvsScreenPosY = 0;
-	m_jvsLightgunDX = -1.0f;
-	m_jvsLightgunDY = -1.0f;
+	for (int p = 0; p < JVS_PLAYER_COUNT; p++)
+	{
+		m_jvsScreenPosX[p] = 0;
+		m_jvsScreenPosY[p] = 0;
+		m_jvsLightgunDX[p] = -1.0f;
+		m_jvsLightgunDY[p] = -1.0f;
+	}
 	std::memset(m_jvsWheelChannels, 0, sizeof(m_jvsWheelChannels));
 	std::memset(m_jvsDrumChannels, 0, sizeof(m_jvsDrumChannels));
 
@@ -640,28 +648,51 @@ const GunMapping& ACJV::GetGunMapping()
 
 static void UpdateLightgunFromMouse()
 {
-	const auto& [mx, my] = InputManager::GetPointerAbsolutePosition(0);
-	float dx, dy;
-	GSTranslateWindowToDisplayCoordinates(mx, my, &dx, &dy);
-	constexpr float edge_margin = 0.01f;
-	bool on_screen = (dx >= 0.0f && dy >= 0.0f && dx < (1.0f - edge_margin) && dy < (1.0f - edge_margin));
-	if (on_screen)
-	{
-		m_jvsLightgunDX = dx;
-		m_jvsLightgunDY = dy;
-		m_jvsScreenPosX = static_cast<u16>((1.0f - dx) * 0xFFFF);
-		m_jvsScreenPosY = static_cast<u16>(dy * 0xFFFF);
-	}
-	else
-	{
-		m_jvsLightgunDX = -1.0f;
-		m_jvsLightgunDY = -1.0f;
-		m_jvsScreenPosX = 0;
-		m_jvsScreenPosY = 0;
-	}
+	// Per-player: P1 reads pointer 0, P2 reads pointer 1 (dual-Sinden).
 	const auto& gm = ACJV::GetGunMapping();
-	if (gm.sensor)
-		ACJV::SetButtonState(0, gm.sensor, gm.sensor_active_high ? on_screen : !on_screen);
+	// Only games that map a 2nd gun (p2_trigger) use player 1; single-gun games leave
+	// player 1 untouched (= the validated single-player build). And a mapped-but-absent P2
+	// (slot not open) must report off-screen, not a phantom (0,0)-on-screen target.
+	const int gunCount = (gm.p2_trigger != 0) ? JVS_PLAYER_COUNT : 1;
+	for (int p = 0; p < JVS_PLAYER_COUNT; p++)
+	{
+		if (p >= gunCount)
+			continue; // game doesn't read this player; keep its word at the reset value
+
+		// p0 is always live; p>0 only when its evdev gun slot is actually open (Linux feeder).
+		bool slot_live = (p == 0);
+#if defined(__linux__)
+		if (p > 0)
+			slot_live = EvdevLightgun::SlotActive(static_cast<u32>(p));
+#endif
+
+		float dx = -1.0f, dy = -1.0f;
+		bool on_screen = false;
+		if (slot_live)
+		{
+			const auto& [mx, my] = InputManager::GetPointerAbsolutePosition(p);
+			GSTranslateWindowToDisplayCoordinates(mx, my, &dx, &dy);
+			constexpr float edge_margin = 0.01f;
+			on_screen = (dx >= 0.0f && dy >= 0.0f && dx < (1.0f - edge_margin) && dy < (1.0f - edge_margin));
+		}
+
+		if (on_screen)
+		{
+			m_jvsLightgunDX[p] = dx;
+			m_jvsLightgunDY[p] = dy;
+			m_jvsScreenPosX[p] = static_cast<u16>((1.0f - dx) * 0xFFFF);
+			m_jvsScreenPosY[p] = static_cast<u16>(dy * 0xFFFF);
+		}
+		else
+		{
+			m_jvsLightgunDX[p] = -1.0f;
+			m_jvsLightgunDY[p] = -1.0f;
+			m_jvsScreenPosX[p] = 0;
+			m_jvsScreenPosY[p] = 0;
+		}
+		if (gm.sensor)
+			ACJV::SetButtonState(p, gm.sensor, gm.sensor_active_high ? on_screen : !on_screen);
+	}
 }
 
 // Combine host axes into the 3 JVS analog channels (steer/gas/brake). Steering encoding is per-game.
@@ -947,10 +978,11 @@ void do_jvs_packet(const u8* input, u8* output) {
 			{
 				JVS_ASSERT(channel == 2);
 				UpdateLightgunFromMouse();
-				(*output++) = static_cast<u8>(m_jvsScreenPosX >> 8); //Pos X MSB
-				(*output++) = static_cast<u8>(m_jvsScreenPosX);      //Pos X LSB
-				(*output++) = static_cast<u8>(m_jvsScreenPosY >> 8); //Pos Y MSB
-				(*output++) = static_cast<u8>(m_jvsScreenPosY);      //Pos Y LSB
+				// TC4 analog channels are X,Y of ONE gun (P1) — not two players.
+				(*output++) = static_cast<u8>(m_jvsScreenPosX[0] >> 8); //Pos X MSB
+				(*output++) = static_cast<u8>(m_jvsScreenPosX[0]);      //Pos X LSB
+				(*output++) = static_cast<u8>(m_jvsScreenPosY[0] >> 8); //Pos Y MSB
+				(*output++) = static_cast<u8>(m_jvsScreenPosY[0]);      //Pos Y LSB
 			}
 			else if(m_jvsMode == JVS_MODE::DRUM)
 			{
@@ -984,6 +1016,15 @@ void do_jvs_packet(const u8* input, u8* output) {
 			inWorkChecksum += channel;
 			inSize--;
 
+			// Diagnostic (throttled): confirm on-device which games issue a 2-channel read
+			// (channel == player) so the ch->player ordering can be validated for 2P.
+			if (m_jvsMode == JVS_MODE::LIGHTGUN)
+			{
+				static u32 s_screenpos_log = 0;
+				if ((s_screenpos_log++ % 120) == 0)
+					Console.WriteLn("ACJV: READ_INP_SCREENPOS channel=%u (ch->player)", channel);
+			}
+
 			if(m_jvsMode == JVS_MODE::LIGHTGUN)
 				UpdateLightgunFromMouse();
 
@@ -992,22 +1033,23 @@ void do_jvs_packet(const u8* input, u8* output) {
 			// Screen position scaling depends on I/O board:
 			// - MIU-I/O (TC3): native 640x224, Y inverted (bottom-up)
 			// - RAYS PCB (TC4, Cobra, VPN): full 16-bit range 0xFFFF, Y inverted (bottom-up)
-			// pos=0 means off-screen in JVS, so on-screen values are clamped to minimum 1
-			u16 posX = 0, posY = 0;
-			if(m_jvsMode == JVS_MODE::LIGHTGUN && m_jvsLightgunDX >= 0.0f)
-			{
-				const float scaleX = (ACJV::CurrentBoardID == MIU_IO_JPN_GUN_EXTENTI) ? 640.0f : 0xFFFF;
-				const float scaleY = (ACJV::CurrentBoardID == MIU_IO_JPN_GUN_EXTENTI) ? 224.0f : 0xFFFF;
-				posX = static_cast<u16>(m_jvsLightgunDX * scaleX);
-				if (ACJV::CurrentBoardID == RAYS_PCB || ACJV::CurrentBoardID == MIU_IO_JPN_GUN_EXTENTI)
-					posY = static_cast<u16>((1.0f - m_jvsLightgunDY) * scaleY);
-				else
-					posY = static_cast<u16>(m_jvsLightgunDY * scaleY);
-				if (posX == 0) posX = 1;
-				if (posY == 0) posY = 1;
-			}
+			// pos=0 means off-screen in JVS, so on-screen values are clamped to minimum 1.
+			// One channel per player: ch 0 = P1 (pointer 0), ch 1 = P2 (pointer 1).
+			const float scaleX = (ACJV::CurrentBoardID == MIU_IO_JPN_GUN_EXTENTI) ? 640.0f : 0xFFFF;
+			const float scaleY = (ACJV::CurrentBoardID == MIU_IO_JPN_GUN_EXTENTI) ? 224.0f : 0xFFFF;
 			for (u8 ch = 0; ch < channel; ch++)
 			{
+				u16 posX = 0, posY = 0;
+				if (m_jvsMode == JVS_MODE::LIGHTGUN && ch < JVS_PLAYER_COUNT && m_jvsLightgunDX[ch] >= 0.0f)
+				{
+					posX = static_cast<u16>(m_jvsLightgunDX[ch] * scaleX);
+					if (ACJV::CurrentBoardID == RAYS_PCB || ACJV::CurrentBoardID == MIU_IO_JPN_GUN_EXTENTI)
+						posY = static_cast<u16>((1.0f - m_jvsLightgunDY[ch]) * scaleY);
+					else
+						posY = static_cast<u16>(m_jvsLightgunDY[ch] * scaleY);
+					if (posX == 0) posX = 1;
+					if (posY == 0) posY = 1;
+				}
 				(*output++) = static_cast<u8>(posX >> 8);
 				(*output++) = static_cast<u8>(posX);
 				(*output++) = static_cast<u8>(posY >> 8);
