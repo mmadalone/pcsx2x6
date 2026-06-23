@@ -63,8 +63,11 @@ static constexpr u32 HTTP_POLL_INTERVAL = 10;
 #define UPDATE_ADDITIONAL_TAGS "SSE4"
 #endif
 
-#define LATEST_RELEASE_URL "https://raw.githubusercontent.com/PS2Homebrew-arcade/pcsx2x6/refs/heads/gh_pages/docs/api/%1.json"
-#define CHANGES_URL "https://api.github.com/repos/PS2Homebrew-arcade/pcsx2x6/compare/%1...%2"
+// deck-patches fork: in-app updater points at OUR fork's gh_pages, never the
+// upstream — so an auto-update can't clobber the patched build. If our fork has
+// no gh_pages/docs/api/<channel>.json yet, the check just no-ops (safe).
+#define LATEST_RELEASE_URL "https://raw.githubusercontent.com/mmadalone/pcsx2x6/refs/heads/gh_pages/docs/api/%1.json"
+#define CHANGES_URL "https://api.github.com/repos/mmadalone/pcsx2x6/compare/%1...%2"
 
 // Available release channels.
 static const char* UPDATE_TAGS[] = {"stable", "nightly"};
