@@ -878,6 +878,12 @@ void do_jvs_packet(const u8* input, u8* output) {
 			inWorkChecksum += byteCount;
 			inSize -= 2;
 
+			{ // FULLDIAG: switch read -- playerCount + both button words (P2 trigger=0x2000 in word0), throttled
+				static u32 s_sw = 0;
+				if ((s_sw++ % 96) < 2)
+					Console.WriteLn("FULLDIAG SWINP pc=%u word0=%04X word1=%04X", playerCount, m_jvsButtonState[0], m_jvsButtonState[1]);
+			}
+
 			(*output++) = JVS_CMD_SUCCESS;
 			(*output++) = m_testButtonState|(s_dip_switch_state & TESTMODE);
 			//(*output++) = (m_jvsSystemButtonState == 0x03) ? 0x80 : 0;  //Test
@@ -1045,6 +1051,11 @@ void do_jvs_packet(const u8* input, u8* output) {
 						posY = static_cast<u16>(m_jvsLightgunDY[ch] * scaleY);
 					if (posX == 0) posX = 1;
 					if (posY == 0) posY = 1;
+				}
+				{ // FULLDIAG: the emitted pair the game receives on this channel/sub-pair, throttled
+					static u32 s_emit = 0;
+					if (m_jvsMode == JVS_MODE::LIGHTGUN && (s_emit++ % 96) < 2)
+						Console.WriteLn("FULLDIAG EMIT ch=%u pair=%u -> X=%u Y=%u", channel, ch, posX, posY);
 				}
 				(*output++) = static_cast<u8>(posX >> 8);
 				(*output++) = static_cast<u8>(posX);

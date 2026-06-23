@@ -1252,6 +1252,7 @@ void ImGuiManager::UpdateSoftwareCursorTexture(u32 index)
 		return;
 	}
 	sc.texture->Update(GSVector4i(0, 0, image.GetWidth(), image.GetHeight()), image.GetPixels(), image.GetPitch(), 0);
+	Console.WriteLn("CROSSHAIRLOG texture BUILT idx=%u %ux%u path='%s'", index, image.GetWidth(), image.GetHeight(), sc.image_path.c_str()); // FULLDIAG
 
 	sc.extent_x = std::ceil(static_cast<float>(image.GetWidth()) * sc.scale * s_global_scale) / 2.0f;
 	sc.extent_y = std::ceil(static_cast<float>(image.GetHeight()) * sc.scale * s_global_scale) / 2.0f;
@@ -1275,6 +1276,16 @@ void ImGuiManager::DrawSoftwareCursors()
 {
 	// This one's okay to race, worst that happens is we render the wrong number of cursors for a frame.
 	const u32 pointer_count = InputManager::MAX_POINTER_DEVICES;
+	{ // FULLDIAG (GS thread): per-pointer cursor texture-present + drawn position, throttled ~2/sec
+		static u32 s_chlog = 0;
+		if ((s_chlog++ % 120) == 0)
+			for (u32 ci = 0; ci < pointer_count; ci++)
+			{
+				const auto cpos = InputManager::GetPointerAbsolutePosition(ci);
+				Console.WriteLn("CROSSHAIRLOG draw idx=%u tex=%d pos=(%.0f,%.0f) path='%s'",
+					ci, s_software_cursors[ci].texture ? 1 : 0, cpos.first, cpos.second, s_software_cursors[ci].image_path.c_str());
+			}
+	}
 	for (u32 i = 0; i < pointer_count; i++)
 		DrawSoftwareCursor(s_software_cursors[i], InputManager::GetPointerAbsolutePosition(i));
 
@@ -1285,6 +1296,7 @@ void ImGuiManager::DrawSoftwareCursors()
 void ImGuiManager::SetSoftwareCursor(u32 index, std::string image_path, float image_scale, u32 multiply_color)
 {
 	MTGS::RunOnGSThread([index, image_path = std::move(image_path), image_scale, multiply_color]() {
+		Console.WriteLn("CROSSHAIRLOG SetSoftwareCursor idx=%u path='%s' scale=%.3f", index, image_path.c_str(), image_scale); // FULLDIAG
 		pxAssert(index < std::size(s_software_cursors));
 		SoftwareCursor& sc = s_software_cursors[index];
 		sc.color = multiply_color | 0xFF000000;
