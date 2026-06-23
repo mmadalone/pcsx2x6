@@ -4,6 +4,8 @@ on:
   push:
     branches-ignore:
       - "l10n_master"
+      # Deck fork: we only ship the Linux AppImage; skip mac/Windows on our work branches.
+      - "deck-patches*"
   pull_request:
     branches:
       - master
