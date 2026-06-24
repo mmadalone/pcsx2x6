@@ -464,7 +464,7 @@ static float m_wheelBrake  = 0.0f; // left trigger  (L2)
 // This table serves as template for future per-game configs (fighting, driving, drum, etc).
 static const GunMapping s_default_gun_mapping = {JVS_BTN_3, JVS_BTN_RIGHT, 0, false, 0, 0, JVS_BTN_2, 0};
 static const std::map<std::string, GunMapping> s_gun_mappings = {
-	{"NM00003", {0,            0x200,         JVS_BTN_4, true,  JVS_BTN_3,  JVS_BTN_6, JVS_BTN_2,    JVS_BTN_5}}, // Vampire Night; p2_sensor=JVS_BTN_4=0x4000 CANDIDATE (UNVERIFIED free word0 bit)
+	{"NM00003", {0,            0x200,         JVS_BTN_4, true,  JVS_BTN_3,  JVS_BTN_6, JVS_BTN_2,    JVS_BTN_1}}, // Vampire Night. p1_trig=JVS_BTN_2=0x01, p2_trig=JVS_BTN_1=0x02 (the two guns' triggers are the adjacent Button1/Button2 low-byte pair; confirmed via VPNGAME disasm + on-device). p2_sensor=JVS_BTN_4=0x4000, p2_start=JVS_BTN_6=0x1000 both verified on-device. WAS p2_trigger=JVS_BTN_5=0x2000 (wrong: that's the menu nav/down bit, game ignored it for firing).
 	{"NM00012", {JVS_BTN_6,    0,             0,         false, 0,          0,          JVS_BTN_2,    0}},          // Time Crisis 3
 	{"NM00021", {JVS_BTN_3,    JVS_BTN_RIGHT, 0,         false, 0,          0,          JVS_BTN_LEFT, 0}},          // Cobra The Arcade
 	{"NM00032", {JVS_BTN_3,    JVS_BTN_RIGHT, 0,         false, 0,          0,          JVS_BTN_LEFT, 0}},          // Time Crisis 4
