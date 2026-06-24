@@ -9,6 +9,8 @@
 #include "Input/EvdevLightgun.h"
 #endif
 #include "GS/GS.h"
+#include "Memory.h"
+#include "IopMem.h"
 #include "common/SettingsInterface.h"
 #include <algorithm>
 #include <array>
@@ -373,6 +375,12 @@ static u16 s_p2_trigger_override = 0;
 // we leave at 0; sweep this to see if it flips the game into a 2-player (pc=2) switch read. 0 = unchanged.
 // (Avoid 0x80 = service-menu.)
 static u16 s_sys_byte_or = 0;
+// [JVS] DumpRam=true: one-shot dump of EE+IOP RAM to /tmp/vpn_ee.bin + /tmp/vpn_iop.bin during 2P
+// lightgun gameplay (P2 trigger held) -> read the disc-loaded GunMgr/shot code (savestate can't name
+// the file for the arcade boot). [JVS] ScreenposTrig (hex): OR into gun-2's screenpos status byte when
+// P2 trigger held -> experiment: is the shot trigger carried in the screen-position reply? Both 0/off default.
+static bool s_dump_ram = false;
+static u16 s_screenpos_trig = 0;
 
 void ACJV::LoadConfig(const SettingsInterface& si)
 {
@@ -392,6 +400,9 @@ void ACJV::LoadConfig(const SettingsInterface& si)
 	s_p2_trigger_override = p2tb.empty() ? 0 : static_cast<u16>(std::strtoul(p2tb.c_str(), nullptr, 0));
 	std::string sbo = si.GetStringValue(CONFIG_SECTION, "SysByteOr", "");
 	s_sys_byte_or = sbo.empty() ? 0 : static_cast<u16>(std::strtoul(sbo.c_str(), nullptr, 0));
+	s_dump_ram = si.GetBoolValue(CONFIG_SECTION, "DumpRam", false);
+	std::string spt = si.GetStringValue(CONFIG_SECTION, "ScreenposTrig", "");
+	s_screenpos_trig = spt.empty() ? 0 : static_cast<u16>(std::strtoul(spt.c_str(), nullptr, 0));
 }
 
 void ACJV::CopyConfiguration(SettingsInterface* dest_si, const SettingsInterface& src_si, bool copy_settings, bool copy_bindings)
@@ -406,6 +417,8 @@ void ACJV::CopyConfiguration(SettingsInterface* dest_si, const SettingsInterface
 		dest_si->CopyIntValue(src_si, CONFIG_SECTION, "SindenBorderThickness");
 		dest_si->CopyStringValue(src_si, CONFIG_SECTION, "P2TriggerBit");
 		dest_si->CopyStringValue(src_si, CONFIG_SECTION, "SysByteOr");
+		dest_si->CopyBoolValue(src_si, CONFIG_SECTION, "DumpRam");
+		dest_si->CopyStringValue(src_si, CONFIG_SECTION, "ScreenposTrig");
 	}
 
 	if (copy_bindings)
@@ -432,6 +445,8 @@ void ACJV::SetDefaultConfiguration(SettingsInterface& si)
 	si.SetIntValue(CONFIG_SECTION, "SindenBorderThickness", 10);
 	si.SetStringValue(CONFIG_SECTION, "P2TriggerBit", "");
 	si.SetStringValue(CONFIG_SECTION, "SysByteOr", "");
+	si.SetBoolValue(CONFIG_SECTION, "DumpRam", false);
+	si.SetStringValue(CONFIG_SECTION, "ScreenposTrig", "");
 }
 
 // The game reading the JVS board: return the requested word from its read buffer (rdbuf).
@@ -1099,7 +1114,9 @@ void do_jvs_packet(const u8* input, u8* output) {
 			if(m_jvsMode == JVS_MODE::LIGHTGUN)
 				UpdateLightgunFromMouse();
 
-			(*output++) = JVS_CMD_SUCCESS;
+			// ScreenposTrig experiment: OR the configured bits into gun-2's screenpos status byte while
+			// P2 trigger is held -> tests whether the gameplay shot trigger rides the screen-position reply.
+			(*output++) = JVS_CMD_SUCCESS | ((s_screenpos_trig && channel == 2 && (m_jvsButtonState[0] & 0x2000)) ? (u8)s_screenpos_trig : 0);
 
 			// Screen position scaling depends on I/O board:
 			// - MIU-I/O (TC3): native 640x224, Y inverted (bottom-up)
@@ -1203,6 +1220,19 @@ void do_acjv_packet() {
 					for (u32 i = 0; i < n; i++) snprintf(hex + i*2, 3, "%02x", wrbuf[c+i]);
 					Console.WriteLn("FULLDIAG ACWR @%03x %s", c, hex);
 				}
+			}
+		}
+	}
+	{ // RAM DUMP (gated on [JVS] DumpRam): one-shot EE+IOP dump during 2P lightgun gameplay (P2 trigger
+	  // held), so I can read the disc-loaded GunMgr/shot code that decides gun-2's trigger.
+		if (s_dump_ram && m_jvsMode == JVS_MODE::LIGHTGUN) {
+			static u32 s_rdc = 0; static bool s_done = false;
+			++s_rdc;
+			if (!s_done && s_rdc > 600 && (m_jvsButtonState[0] & 0x2000)) {
+				s_done = true;
+				if (FILE* fe = std::fopen("/tmp/vpn_ee.bin", "wb")) { std::fwrite(eeMem->Main, 1, Ps2MemSize::ExposedRam, fe); std::fclose(fe); }
+				if (FILE* fi = std::fopen("/tmp/vpn_iop.bin", "wb")) { std::fwrite(iopMem->Main, 1, Ps2MemSize::ExposedIopRam, fi); std::fclose(fi); }
+				Console.WriteLn("FULLDIAG RAMDUMP wrote /tmp/vpn_ee.bin (EE %u) + /tmp/vpn_iop.bin (IOP %u)", Ps2MemSize::ExposedRam, Ps2MemSize::ExposedIopRam);
 			}
 		}
 	}
