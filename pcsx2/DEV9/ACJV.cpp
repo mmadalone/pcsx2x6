@@ -767,6 +767,14 @@ void do_jvs_packet(const u8* input, u8* output) {
 		u8 cmd = (*input++);
 		inSize--;
 		inWorkChecksum += cmd;
+		{ // FULLDIAG: log each distinct (node,command) ONCE -> the full JVS command map. GUN 2P TRIGGER
+		  // is NOT in word0 and word1 is never read (pc=1), so it must arrive on a command/node we don't
+		  // yet handle: a 2nd JVS node, analog 0x22, general-purpose 0x26, rotary 0x23, keycode 0x24, etc.
+			static bool s_seen[0x10000] = {};
+			const u32 k = ((static_cast<u32>(inDest) << 8) | cmd) & 0xFFFF;
+			if (!s_seen[k]) { s_seen[k] = true;
+				Console.WriteLn("FULLDIAG JVSCMD node=0x%02X cmd=0x%02X", inDest, cmd); }
+		}
 		switch(cmd) {
 		case JVS::RESET: {
 			JVS_ASSERT(inSize != 0);
