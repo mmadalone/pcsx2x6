@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <cctype>
 #include <string>
 #include <string_view>
 
@@ -75,6 +76,28 @@ namespace EvdevLightgun
 			}
 		}
 
+		// True if `name` contains "sinden" (case-insensitive) -- a stock/raw Sinden lightgun.
+		// The smoother's virtual mice also contain it, but those are claimed by the SLOT_NAME
+		// pass first; this is the single-gun fallback used only when no smoother is present.
+		bool nameHasSinden(std::string_view nv)
+		{
+			constexpr std::string_view needle = "sinden";
+			if (nv.size() < needle.size())
+				return false;
+			for (size_t i = 0; i + needle.size() <= nv.size(); i++)
+			{
+				size_t j = 0;
+				for (; j < needle.size(); j++)
+				{
+					if (std::tolower(static_cast<unsigned char>(nv[i + j])) != needle[j])
+						break;
+				}
+				if (j == needle.size())
+					return true;
+			}
+			return false;
+		}
+
 		void closeSlot(Slot& s)
 		{
 			if (s.fd >= 0)
@@ -135,7 +158,8 @@ namespace EvdevLightgun
 		}
 
 		// Open any not-yet-open slots. Path mode → slot 0 = s_path; name mode → scan
-		// /dev/input/event* and assign by SLOT_NAME substring.
+		// /dev/input/event*: the smoother's "Smoothed P1/P2" mice fill the slots, else a stock
+		// Sinden (USB vendor 0x16c0 / "sinden" in the name) fills slot 0 as a single-gun fallback.
 		void discover()
 		{
 			if (s_path_mode)
@@ -148,6 +172,12 @@ namespace EvdevLightgun
 			DIR* dir = opendir("/dev/input");
 			if (!dir)
 				return;
+
+			// Fallback candidate: a stock/raw Sinden (USB vendor 0x16c0 or "sinden" in its name)
+			// for when the smoother's "Smoothed P1/P2" virtual mice aren't present (a new user with
+			// no smoother). Stashed, not opened, so the smoother's named devices -- if they appear
+			// anywhere in this scan -- always win the slots. Single gun only (slot 0).
+			char fallback_path[320] = {};
 
 			for (dirent* de = readdir(dir); de != nullptr; de = readdir(dir))
 			{
@@ -162,19 +192,39 @@ namespace EvdevLightgun
 					continue;
 				char name[256] = {};
 				const bool got_name = ioctl(fd, EVIOCGNAME(sizeof(name) - 1), name) >= 0;
+				input_id id = {};
+				const bool got_id = ioctl(fd, EVIOCGID, &id) >= 0;
 				close(fd);
 				if (!got_name)
 					continue;
 
 				const std::string_view nv(name);
+				bool matched_named = false;
 				for (u32 idx = 0; idx < NUM_SLOTS; idx++)
 				{
 					if (s_slots[idx].fd < 0 && nv.find(SLOT_NAME[idx]) != std::string_view::npos)
+					{
 						openInto(idx, path);
+						matched_named = true;
+					}
+				}
+
+				// Remember the first stock Sinden for the single-gun fallback below. Skip devices
+				// we just claimed via SLOT_NAME (the smoother's own mice also match the filter).
+				if (!matched_named && fallback_path[0] == '\0' &&
+					((got_id && id.vendor == 0x16c0) || nameHasSinden(nv)))
+				{
+					std::snprintf(fallback_path, sizeof(fallback_path), "%s", path);
 				}
 			}
 
 			closedir(dir);
+
+			// No smoother device claimed slot 0 -> open the stock Sinden as a single gun. openInto()
+			// rejects anything without ABS_X/Y, so a touchscreen/keyboard that slipped the name or
+			// vendor filter still cannot be used as a gun.
+			if (s_slots[0].fd < 0 && fallback_path[0] != '\0')
+				openInto(0, fallback_path);
 		}
 
 		void initFromEnv()

@@ -23,27 +23,41 @@ arcade games; this fork makes a **Sinden / absolute-pointer lightgun** usable on
   reaches the emulator and aim is broken in Game Mode. This fork reads the gun's absolute `ABS_X`/`ABS_Y`
   off `/dev/input` and drives the emulator's pointer directly, bypassing the compositor (similar to
   RetroArch's `udev` input driver). Works in **both Desktop and Game Mode.**
-  Enable it with the environment variable `PCSX2_EVDEV_LIGHTGUN=auto`.
+  Enable it with `PCSX2_EVDEV_LIGHTGUN=auto`, which finds a Sinden gun automatically (USB vendor `16c0`,
+  or "sinden" in the device name). See **Setup** below.
 
-- **Per-game JVS gun mappings.**
-  The arcade JVS I/O switch bits (trigger, foot pedal / reload, on-screen sensor) are mapped per game ID
-  so each title reads the gun on the bits it expects.
+That source (and this auto-discovery) is the fork's one functional addition; the System 246/256 emulation
+and its per-game gun handling are upstream pcsx2x6's.
 
-## Using a lightgun on the Deck
+## Setup (new users)
 
-1. Launch the emulator with `PCSX2_EVDEV_LIGHTGUN=auto` in the environment.
-2. Bind the gun's trigger to the GunCon2 **Trigger** input in the emulator's settings.
-3. Run the game's in-arcade **gun calibration** once.
+**What you provide** (this fork is just the emulator):
+- The System 246/256 **BIOS** and your **games** (security dongles, discs/CHDs, `.acgame` launchers).
+  Follow the [upstream pcsx2x6 site](https://ps2homebrew-arcade.github.io/pcsx2x6/) for that; this fork
+  does not change it.
+- A **Sinden lightgun with its own Linux driver running**, so the gun appears as an input device with
+  absolute axes. The Sinden software (LightgunMono) is closed-source and download-only from
+  sindenlightgun.com; it is not bundled here.
 
-For base emulator setup (BIOS, security dongles, game discs), see the
-[upstream pcsx2x6 site](https://ps2homebrew-arcade.github.io/pcsx2x6/).
+**Steps:**
+1. Download the AppImage from the [Releases](https://github.com/mmadalone/pcsx2x6/releases) page and
+   `chmod +x` it.
+2. Set up your BIOS and games per upstream.
+3. Launch with `PCSX2_EVDEV_LIGHTGUN=auto` in the environment. It finds a Sinden gun automatically (USB
+   vendor `16c0`, or "sinden" in the device name); or point it at a specific device with
+   `PCSX2_EVDEV_LIGHTGUN=/dev/input/eventN`.
+4. Bind the gun's trigger to the GunCon2 **Trigger** input in the emulator's input settings.
+5. Run the game's in-arcade **gun calibration** once.
+
+**Updating:** download the latest AppImage from the
+[Releases](https://github.com/mmadalone/pcsx2x6/releases) page.
 
 ## Status & limitations
 
-- **Single-gun.** Two-player dual-gun support is a work in progress on a separate branch and is **not
-  included or functional in this build.** Vampire Night (the only System 246/256 two-guns-on-one-screen
-  lightgun title) drives its guns through an undocumented CCD/IR I/O board that no emulator currently
-  reproduces, so its second gun does not fire in-game anywhere.
+- **Single-gun only. Two-player does not work.** The only System 246/256 two-guns-on-one-screen lightgun
+  title, Vampire Night, drives its guns through an undocumented CCD/IR I/O board that no emulator
+  reproduces, so its second gun never fires in-game. Some 2-gun input plumbing exists in the code, but it
+  yields no working second gun.
 
 ## Relationship to upstream
 
