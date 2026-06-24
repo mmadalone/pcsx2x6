@@ -640,8 +640,10 @@ namespace usb_lightgun
 					const auto& mapping = ACJV::GetGunMapping();
 					if (player == 0)
 						ACJV::SetButtonState(0, mapping.p1_trigger, pressed);
-					else if (mapping.p2_trigger)
-						ACJV::SetButtonState(0, mapping.p2_trigger, pressed);
+					else if (mapping.p2_trigger) {
+						ACJV::SetButtonState(0, mapping.p2_trigger, pressed);   // word0 (I/O-test "GUN 2P TRIGGER")
+						ACJV::SetButtonState(1, mapping.p1_trigger, pressed);   // word1 bit 0x01 = real player-2 gameplay trigger (RE'd Namco driver); read only when game polls pc=2
+					}
 					else
 						ACJV::SetButtonState(player, mapping.p1_trigger, pressed);
 					break;

@@ -368,6 +368,11 @@ void ACJV::ToggleDIPSwitchState(u32 index)
 // VPN gun-2 trigger without rebuilding (e.g. "0x0100"). 0/empty = use the per-game table value. Read in
 // LoadConfig, applied in SetGameId via RebuildEffectiveGunMapping (only to games that define a 2nd gun).
 static u16 s_p2_trigger_override = 0;
+// [JVS] SysByteOr: EXPERIMENT — OR this value into the READ_INP_SWITCH system byte in lightgun mode.
+// The RE'd Namco gun driver uses system-byte bits (0x20=IR-sensor-connected, 0x40=link-index P1/P2) that
+// we leave at 0; sweep this to see if it flips the game into a 2-player (pc=2) switch read. 0 = unchanged.
+// (Avoid 0x80 = service-menu.)
+static u16 s_sys_byte_or = 0;
 
 void ACJV::LoadConfig(const SettingsInterface& si)
 {
@@ -385,6 +390,8 @@ void ACJV::LoadConfig(const SettingsInterface& si)
 	s_sinden_border_thickness = si.GetIntValue(CONFIG_SECTION, "SindenBorderThickness", 10);
 	std::string p2tb = si.GetStringValue(CONFIG_SECTION, "P2TriggerBit", "");
 	s_p2_trigger_override = p2tb.empty() ? 0 : static_cast<u16>(std::strtoul(p2tb.c_str(), nullptr, 0));
+	std::string sbo = si.GetStringValue(CONFIG_SECTION, "SysByteOr", "");
+	s_sys_byte_or = sbo.empty() ? 0 : static_cast<u16>(std::strtoul(sbo.c_str(), nullptr, 0));
 }
 
 void ACJV::CopyConfiguration(SettingsInterface* dest_si, const SettingsInterface& src_si, bool copy_settings, bool copy_bindings)
@@ -398,6 +405,7 @@ void ACJV::CopyConfiguration(SettingsInterface* dest_si, const SettingsInterface
 		dest_si->CopyIntValue(src_si, CONFIG_SECTION, "SindenBorderMode");
 		dest_si->CopyIntValue(src_si, CONFIG_SECTION, "SindenBorderThickness");
 		dest_si->CopyStringValue(src_si, CONFIG_SECTION, "P2TriggerBit");
+		dest_si->CopyStringValue(src_si, CONFIG_SECTION, "SysByteOr");
 	}
 
 	if (copy_bindings)
@@ -423,6 +431,7 @@ void ACJV::SetDefaultConfiguration(SettingsInterface& si)
 	si.SetIntValue(CONFIG_SECTION, "SindenBorderMode", 0);
 	si.SetIntValue(CONFIG_SECTION, "SindenBorderThickness", 10);
 	si.SetStringValue(CONFIG_SECTION, "P2TriggerBit", "");
+	si.SetStringValue(CONFIG_SECTION, "SysByteOr", "");
 }
 
 // The game reading the JVS board: return the requested word from its read buffer (rdbuf).
@@ -941,7 +950,7 @@ void do_jvs_packet(const u8* input, u8* output) {
 			}
 
 			(*output++) = JVS_CMD_SUCCESS;
-			(*output++) = m_testButtonState|(s_dip_switch_state & TESTMODE);
+			(*output++) = m_testButtonState|(s_dip_switch_state & TESTMODE)|((m_jvsMode == JVS_MODE::LIGHTGUN) ? (u8)s_sys_byte_or : 0); // SysByteOr experiment
 			//(*output++) = (m_jvsSystemButtonState == 0x03) ? 0x80 : 0;  //Test
 
 			(*output++) = static_cast<u8>(m_jvsButtonState[0]);      //Player 1
