@@ -23,6 +23,7 @@ jobs:
       compiler: clang
       cmakeflags: ""
       buildAppImage: true
+      stableBuild: true
     secrets: inherit
   build_linux_debug:
     name: "Debug"
