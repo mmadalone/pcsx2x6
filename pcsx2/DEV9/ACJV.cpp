@@ -521,6 +521,8 @@ void ACJV::InsertCoin(u32 slot)
 		m_coin1++;
 	else if (slot == 1)
 		m_coin2++;
+	// FULLDIAG: confirm the host coin button actually reached here (esp. P2 = Gun-2 Rear-Left -> 'v').
+	Console.WriteLn("FULLDIAG COIN insert slot=%u m_coin1=%u m_coin2=%u", slot, m_coin1, m_coin2);
 }
 
 void ACJV::SetMode(JVS_MODE mode)
@@ -891,10 +893,15 @@ void do_jvs_packet(const u8* input, u8* output) {
 			inWorkChecksum += byteCount;
 			inSize -= 2;
 
-			{ // FULLDIAG: switch read -- playerCount + both button words (P2 trigger=0x2000 in word0), throttled
-				static u32 s_sw = 0;
-				if ((s_sw++ % 96) < 2)
+			{ // FULLDIAG: switch read -- EDGE-TRIGGERED (log only on change) so we never miss the
+			  // transient P1 trigger pulse (0x01) or the pc=1->2 flip when P2 joins. The old 2-of-96
+			  // throttle undersampled the few-frame trigger pulse -> it looked absent.
+				static u32 s_lastPc = 0xFFFFFFFF; static u16 s_lastW0 = 0xFFFF; static u16 s_lastW1 = 0xFFFF;
+				if (playerCount != s_lastPc || m_jvsButtonState[0] != s_lastW0 || m_jvsButtonState[1] != s_lastW1)
+				{
+					s_lastPc = playerCount; s_lastW0 = m_jvsButtonState[0]; s_lastW1 = m_jvsButtonState[1];
 					Console.WriteLn("FULLDIAG SWINP pc=%u word0=%04X word1=%04X", playerCount, m_jvsButtonState[0], m_jvsButtonState[1]);
+				}
 			}
 
 			(*output++) = JVS_CMD_SUCCESS;
@@ -926,6 +933,15 @@ void do_jvs_packet(const u8* input, u8* output) {
 			inSize--;
 			u8 slot1Condition = COIN_NORMAL; // see enum COINCOND
 			u8 slot2Condition = COIN_NORMAL; // see enum COINCOND
+
+			{ // FULLDIAG: does the game poll slot 2, and does it see the P2 credit? (edge-triggered)
+				static u8 s_lsc = 0xFF; static u16 s_lc1 = 0xFFFF, s_lc2 = 0xFFFF;
+				if (slotCount != s_lsc || m_coin1 != s_lc1 || m_coin2 != s_lc2)
+				{
+					s_lsc = slotCount; s_lc1 = m_coin1; s_lc2 = m_coin2;
+					Console.WriteLn("FULLDIAG COINRD slotCount=%u c1=%u c2=%u", slotCount, m_coin1, m_coin2);
+				}
+			}
 
 			(*output++) = JVS_CMD_SUCCESS;
 
