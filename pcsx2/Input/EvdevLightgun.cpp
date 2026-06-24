@@ -42,6 +42,7 @@ namespace EvdevLightgun
 			int min_y = 0, max_y = 32767;
 			int last_x = -1, last_y = -1;
 			unsigned last_buttons = 0; // bit0=Left, bit1=Right, bit2=Middle
+			bool from_fallback = false; // opened by the generic-Sinden fallback, not a SLOT_NAME match
 		};
 
 		bool s_env_checked = false;
@@ -109,6 +110,7 @@ namespace EvdevLightgun
 			s.last_x = -1;
 			s.last_y = -1;
 			s.last_buttons = 0;
+			s.from_fallback = false;
 		}
 
 		// Read an ABS axis range; false if the device lacks the axis or it is degenerate.
@@ -159,7 +161,8 @@ namespace EvdevLightgun
 
 		// Open any not-yet-open slots. Path mode → slot 0 = s_path; name mode → scan
 		// /dev/input/event*: the smoother's "Smoothed P1/P2" mice fill the slots, else a stock
-		// Sinden (USB vendor 0x16c0 / "sinden" in the name) fills slot 0 as a single-gun fallback.
+		// Sinden ("sinden" in the device name) fills slot 0 as a single-gun fallback. A late
+		// "Smoothed PN" device upgrades a fallback-filled slot, so the smoother always wins.
 		void discover()
 		{
 			if (s_path_mode)
@@ -173,10 +176,10 @@ namespace EvdevLightgun
 			if (!dir)
 				return;
 
-			// Fallback candidate: a stock/raw Sinden (USB vendor 0x16c0 or "sinden" in its name)
-			// for when the smoother's "Smoothed P1/P2" virtual mice aren't present (a new user with
-			// no smoother). Stashed, not opened, so the smoother's named devices -- if they appear
-			// anywhere in this scan -- always win the slots. Single gun only (slot 0).
+			// Fallback candidate: a stock/raw Sinden ("sinden" in its name) for when the smoother's
+			// "Smoothed P1/P2" virtual mice aren't present (a new user with no smoother). Stashed,
+			// not opened, so the smoother's named devices -- if they appear anywhere in this scan --
+			// always win the slots. Single gun only (slot 0).
 			char fallback_path[320] = {};
 
 			for (dirent* de = readdir(dir); de != nullptr; de = readdir(dir))
@@ -192,8 +195,6 @@ namespace EvdevLightgun
 					continue;
 				char name[256] = {};
 				const bool got_name = ioctl(fd, EVIOCGNAME(sizeof(name) - 1), name) >= 0;
-				input_id id = {};
-				const bool got_id = ioctl(fd, EVIOCGID, &id) >= 0;
 				close(fd);
 				if (!got_name)
 					continue;
@@ -202,29 +203,30 @@ namespace EvdevLightgun
 				bool matched_named = false;
 				for (u32 idx = 0; idx < NUM_SLOTS; idx++)
 				{
-					if (s_slots[idx].fd < 0 && nv.find(SLOT_NAME[idx]) != std::string_view::npos)
-					{
-						openInto(idx, path);
-						matched_named = true;
-					}
+					if (nv.find(SLOT_NAME[idx]) == std::string_view::npos)
+						continue;
+					matched_named = true; // a smoother device -> never stashed as a fallback
+					if (s_slots[idx].fd >= 0 && !s_slots[idx].from_fallback)
+						continue; // slot already held by a smoother device
+					if (s_slots[idx].fd >= 0)
+						closeSlot(s_slots[idx]); // upgrade: drop the fallback, take the smoother device
+					if (openInto(idx, path))
+						s_slots[idx].from_fallback = false;
 				}
 
 				// Remember the first stock Sinden for the single-gun fallback below. Skip devices
-				// we just claimed via SLOT_NAME (the smoother's own mice also match the filter).
-				if (!matched_named && fallback_path[0] == '\0' &&
-					((got_id && id.vendor == 0x16c0) || nameHasSinden(nv)))
-				{
+				// we just claimed via SLOT_NAME (the smoother's own mice also contain "sinden").
+				if (!matched_named && fallback_path[0] == '\0' && nameHasSinden(nv))
 					std::snprintf(fallback_path, sizeof(fallback_path), "%s", path);
-				}
 			}
 
 			closedir(dir);
 
 			// No smoother device claimed slot 0 -> open the stock Sinden as a single gun. openInto()
-			// rejects anything without ABS_X/Y, so a touchscreen/keyboard that slipped the name or
-			// vendor filter still cannot be used as a gun.
-			if (s_slots[0].fd < 0 && fallback_path[0] != '\0')
-				openInto(0, fallback_path);
+			// rejects anything without ABS_X/Y, so a touchscreen/keyboard that slipped the name
+			// filter still cannot be used as a gun. Flag it so a late "Smoothed P1" can upgrade it.
+			if (s_slots[0].fd < 0 && fallback_path[0] != '\0' && openInto(0, fallback_path))
+				s_slots[0].from_fallback = true;
 		}
 
 		void initFromEnv()

@@ -23,8 +23,8 @@ arcade games; this fork makes a **Sinden / absolute-pointer lightgun** usable on
   reaches the emulator and aim is broken in Game Mode. This fork reads the gun's absolute `ABS_X`/`ABS_Y`
   off `/dev/input` and drives the emulator's pointer directly, bypassing the compositor (similar to
   RetroArch's `udev` input driver). Works in **both Desktop and Game Mode.**
-  Enable it with `PCSX2_EVDEV_LIGHTGUN=auto`, which finds a Sinden gun automatically (USB vendor `16c0`,
-  or "sinden" in the device name). See **Setup** below.
+  Enable it with `PCSX2_EVDEV_LIGHTGUN=auto`, which finds a Sinden gun automatically (a device with
+  "sinden" in its name). See **Setup** below.
 
 That source (and this auto-discovery) is the fork's one functional addition; the System 246/256 emulation
 and its per-game gun handling are upstream pcsx2x6's.
@@ -43,11 +43,15 @@ and its per-game gun handling are upstream pcsx2x6's.
 1. Download the AppImage from the [Releases](https://github.com/mmadalone/pcsx2x6/releases) page and
    `chmod +x` it.
 2. Set up your BIOS and games per upstream.
-3. Launch with `PCSX2_EVDEV_LIGHTGUN=auto` in the environment. It finds a Sinden gun automatically (USB
-   vendor `16c0`, or "sinden" in the device name); or point it at a specific device with
+3. Launch with `PCSX2_EVDEV_LIGHTGUN=auto` in the environment. It finds a Sinden gun automatically (a
+   device with "sinden" in its name); or point it at a specific device with
    `PCSX2_EVDEV_LIGHTGUN=/dev/input/eventN`.
 4. Bind the gun's trigger to the GunCon2 **Trigger** input in the emulator's input settings.
 5. Run the game's in-arcade **gun calibration** once.
+
+**Data location:** by default the emulator stores its data (BIOS, dongles, saves) in `~/.config/PCSX2x6`.
+For a self-contained setup, or to share data between a direct launch and an ES-DE launch, place an empty
+`portable.ini` next to the AppImage; it will then use a `PCSX2x6` folder beside the AppImage.
 
 **Updating:** use **Help > Check for Updates** in the emulator, or download the latest AppImage from the
 [Releases](https://github.com/mmadalone/pcsx2x6/releases) page.

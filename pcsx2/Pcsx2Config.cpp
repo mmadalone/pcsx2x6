@@ -2190,6 +2190,19 @@ bool EmuFolders::ShouldUsePortableMode()
 		return true;
 	}
 
+	// For an AppImage, AppRoot is the temporary mount (/tmp/.mount_*), so a portable.ini placed next
+	// to the .AppImage itself is not seen above. Check the AppImage's own directory too, matching the
+	// portable DataRoot resolution in SetDataDirectory() (which uses the $APPIMAGE directory).
+	if (const char* appimage = getenv("APPIMAGE"); appimage && appimage[0])
+	{
+		const std::string appimage_dir(Path::GetDirectory(appimage));
+		if (FileSystem::FileExists(Path::Combine(appimage_dir, "portable.ini").c_str()) ||
+			FileSystem::FileExists(Path::Combine(appimage_dir, "portable.txt").c_str()))
+		{
+			return true;
+		}
+	}
+
 	return false;
 }
 

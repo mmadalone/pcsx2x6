@@ -24,6 +24,7 @@ jobs:
       cmakeflags: ""
       buildAppImage: true
       stableBuild: true
+      fetchTags: true
     secrets: inherit
   build_linux_debug:
     name: "Debug"
