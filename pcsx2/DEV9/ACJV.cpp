@@ -14,6 +14,7 @@
 #include <array>
 #include <atomic>
 #include <string>
+#include <cstdlib>
 
 enum ACJVCMD {
 	UNKNOWN = -2, // unknown CMD, should fire up a warning for developer
@@ -362,6 +363,11 @@ void ACJV::ToggleDIPSwitchState(u32 index)
 	s_dip_switch_state ^= mask;
 }
 
+// [JVS] P2TriggerBit: optional override of the 2nd-gun trigger bit, for on-device bit-sweeping the
+// VPN gun-2 trigger without rebuilding (e.g. "0x0100"). 0/empty = use the per-game table value. Read in
+// LoadConfig, applied in SetGameId via RebuildEffectiveGunMapping (only to games that define a 2nd gun).
+static u16 s_p2_trigger_override = 0;
+
 void ACJV::LoadConfig(const SettingsInterface& si)
 {
 	u16 state = 0;
@@ -376,6 +382,8 @@ void ACJV::LoadConfig(const SettingsInterface& si)
 	s_sinden_border_enabled = si.GetBoolValue(CONFIG_SECTION, "SindenBorderEnabled", false);
 	s_sinden_border_mode = si.GetIntValue(CONFIG_SECTION, "SindenBorderMode", 0);
 	s_sinden_border_thickness = si.GetIntValue(CONFIG_SECTION, "SindenBorderThickness", 10);
+	std::string p2tb = si.GetStringValue(CONFIG_SECTION, "P2TriggerBit", "");
+	s_p2_trigger_override = p2tb.empty() ? 0 : static_cast<u16>(std::strtoul(p2tb.c_str(), nullptr, 0));
 }
 
 void ACJV::CopyConfiguration(SettingsInterface* dest_si, const SettingsInterface& src_si, bool copy_settings, bool copy_bindings)
@@ -388,6 +396,7 @@ void ACJV::CopyConfiguration(SettingsInterface* dest_si, const SettingsInterface
 		dest_si->CopyBoolValue(src_si, CONFIG_SECTION, "SindenBorderEnabled");
 		dest_si->CopyIntValue(src_si, CONFIG_SECTION, "SindenBorderMode");
 		dest_si->CopyIntValue(src_si, CONFIG_SECTION, "SindenBorderThickness");
+		dest_si->CopyStringValue(src_si, CONFIG_SECTION, "P2TriggerBit");
 	}
 
 	if (copy_bindings)
@@ -412,6 +421,7 @@ void ACJV::SetDefaultConfiguration(SettingsInterface& si)
 	si.SetBoolValue(CONFIG_SECTION, "SindenBorderEnabled", false);
 	si.SetIntValue(CONFIG_SECTION, "SindenBorderMode", 0);
 	si.SetIntValue(CONFIG_SECTION, "SindenBorderThickness", 10);
+	si.SetStringValue(CONFIG_SECTION, "P2TriggerBit", "");
 }
 
 // The game reading the JVS board: return the requested word from its read buffer (rdbuf).
@@ -469,7 +479,19 @@ static const std::map<std::string, GunMapping> s_gun_mappings = {
 	{"NM00021", {JVS_BTN_3,    JVS_BTN_RIGHT, 0,         false, 0,          0,          JVS_BTN_LEFT, 0}},          // Cobra The Arcade
 	{"NM00032", {JVS_BTN_3,    JVS_BTN_RIGHT, 0,         false, 0,          0,          JVS_BTN_LEFT, 0}},          // Time Crisis 4
 };
-static const GunMapping* m_gunMapping = &s_default_gun_mapping;
+static const GunMapping* s_base_gun_mapping = &s_default_gun_mapping; // selected per-game table entry
+static GunMapping s_effective_gun_mapping = s_default_gun_mapping;     // base + optional [JVS] overrides (what callers see)
+static const GunMapping* m_gunMapping = &s_effective_gun_mapping;
+
+// Rebuild the effective mapping from the selected base, applying the optional P2TriggerBit override.
+// Guarded so it ONLY affects games that already define a 2nd gun (base p2_trigger != 0); single-gun
+// games stay byte-identical even when the key is set.
+static void RebuildEffectiveGunMapping()
+{
+	s_effective_gun_mapping = *s_base_gun_mapping;
+	if (s_p2_trigger_override != 0 && s_base_gun_mapping->p2_trigger != 0)
+		s_effective_gun_mapping.p2_trigger = s_p2_trigger_override;
+}
 
 static const std::map<std::string, FightingLayout> s_fighting_layouts = {
 	{"NM00004", FightingLayout::TEKKEN},     // Tekken 4
@@ -604,13 +626,13 @@ void ACJV::SetGameId(const std::string& gameid)
 
 	// Select per-game gun mapping, or fall back to default
 	auto it = s_gun_mappings.find(gameid);
+	s_base_gun_mapping = (it != s_gun_mappings.end()) ? &it->second : &s_default_gun_mapping;
 	if (it != s_gun_mappings.end())
-	{
-		m_gunMapping = &it->second;
 		Console.WriteLn("ACJV: gun mapping for %s: p1_trigger=0x%04X pedal=0x%04X sensor=0x%04X", gameid.c_str(), it->second.p1_trigger, it->second.pedal, it->second.sensor);
-	}
-	else
-		m_gunMapping = &s_default_gun_mapping;
+	// Apply optional [JVS] P2TriggerBit override; m_gunMapping points to s_effective_gun_mapping.
+	RebuildEffectiveGunMapping();
+	if (s_p2_trigger_override != 0 && s_base_gun_mapping->p2_trigger != 0)
+		Console.WriteLn("ACJV: [JVS] P2TriggerBit override -> p2_trigger=0x%04X (table was 0x%04X)", s_effective_gun_mapping.p2_trigger, s_base_gun_mapping->p2_trigger);
 
 	auto fit = s_fighting_layouts.find(gameid);
 	auto rit = s_racing_layouts.find(gameid);
