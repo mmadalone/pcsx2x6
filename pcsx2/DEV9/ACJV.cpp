@@ -381,6 +381,11 @@ static u16 s_sys_byte_or = 0;
 // P2 trigger held -> experiment: is the shot trigger carried in the screen-position reply? Both 0/off default.
 static bool s_dump_ram = false;
 static u16 s_screenpos_trig = 0;
+// [JVS] P2SensorBit: optional override of the 2nd-gun ON-SCREEN-sensor bit (mirrors P2TriggerBit), for
+// on-device sweeping. The dual RAM-dump RE (3 agents) says VPN's switch demux 0x1a0f54 reads P2 sensor
+// from word0 bit 0x0020 (and P2 trigger from 0x0010) — but the FIRE dispatcher is statically invisible
+// (indirect jalr), so we confirm empirically. 0/empty = use the per-game table value.
+static u16 s_p2_sensor_override = 0;
 
 void ACJV::LoadConfig(const SettingsInterface& si)
 {
@@ -403,6 +408,8 @@ void ACJV::LoadConfig(const SettingsInterface& si)
 	s_dump_ram = si.GetBoolValue(CONFIG_SECTION, "DumpRam", false);
 	std::string spt = si.GetStringValue(CONFIG_SECTION, "ScreenposTrig", "");
 	s_screenpos_trig = spt.empty() ? 0 : static_cast<u16>(std::strtoul(spt.c_str(), nullptr, 0));
+	std::string p2sb = si.GetStringValue(CONFIG_SECTION, "P2SensorBit", "");
+	s_p2_sensor_override = p2sb.empty() ? 0 : static_cast<u16>(std::strtoul(p2sb.c_str(), nullptr, 0));
 }
 
 void ACJV::CopyConfiguration(SettingsInterface* dest_si, const SettingsInterface& src_si, bool copy_settings, bool copy_bindings)
@@ -419,6 +426,7 @@ void ACJV::CopyConfiguration(SettingsInterface* dest_si, const SettingsInterface
 		dest_si->CopyStringValue(src_si, CONFIG_SECTION, "SysByteOr");
 		dest_si->CopyBoolValue(src_si, CONFIG_SECTION, "DumpRam");
 		dest_si->CopyStringValue(src_si, CONFIG_SECTION, "ScreenposTrig");
+		dest_si->CopyStringValue(src_si, CONFIG_SECTION, "P2SensorBit");
 	}
 
 	if (copy_bindings)
@@ -447,6 +455,7 @@ void ACJV::SetDefaultConfiguration(SettingsInterface& si)
 	si.SetStringValue(CONFIG_SECTION, "SysByteOr", "");
 	si.SetBoolValue(CONFIG_SECTION, "DumpRam", false);
 	si.SetStringValue(CONFIG_SECTION, "ScreenposTrig", "");
+	si.SetStringValue(CONFIG_SECTION, "P2SensorBit", "");
 }
 
 // The game reading the JVS board: return the requested word from its read buffer (rdbuf).
@@ -504,7 +513,7 @@ static float m_wheelBrake  = 0.0f; // left trigger  (L2)
 // This table serves as template for future per-game configs (fighting, driving, drum, etc).
 static const GunMapping s_default_gun_mapping = {JVS_BTN_3, JVS_BTN_RIGHT, 0, false, 0, 0, JVS_BTN_2, 0};
 static const std::map<std::string, GunMapping> s_gun_mappings = {
-	{"NM00003", {0,            0x200,         JVS_BTN_4, true,  JVS_BTN_3,  JVS_BTN_6, JVS_BTN_2,    JVS_BTN_1}}, // Vampire Night. p1_trig=JVS_BTN_2=0x01, p2_trig=JVS_BTN_1=0x02 (the two guns' triggers are the adjacent Button1/Button2 low-byte pair; confirmed via VPNGAME disasm + on-device). p2_sensor=JVS_BTN_4=0x4000, p2_start=JVS_BTN_6=0x1000 both verified on-device. WAS p2_trigger=JVS_BTN_5=0x2000 (wrong: that's the menu nav/down bit, game ignored it for firing).
+	{"NM00003", {0,            0x200,         JVS_BTN_4, true,  JVS_BTN_3,  JVS_BTN_6, JVS_BTN_2,    JVS_BTN_1}}, // Vampire Night. p1_trig=JVS_BTN_2=0x01 (P1 fires on-device), p2_start=JVS_BTN_6=0x1000 + p2_sensor=JVS_BTN_4=0x4000 verified on-device. p2_trig=JVS_BTN_1=0x02 is the table DEFAULT but UNCONFIRMED — no word0 bit (0x02/0x2000/0x0100/0x0008/0x0010) has ever fired P2 in gameplay. The dual RAM-dump RE (3 agents) says VPN's switch demux 0x1a0f54 reads P2 trig from word0 bit 0x0010 + P2 sensor from 0x0020 (P1 trig 0x80 / sens 0x100) — but the FIRE dispatcher is statically invisible (indirect jalr), and our P1 fires via 0x01 not 0x80 (unresolved P1 puzzle), so 0x0010/0x0020 is under empirical test via [JVS] P2TriggerBit + P2SensorBit overrides + the INTRACE live trace, NOT yet baked into this table.
 	{"NM00012", {JVS_BTN_6,    0,             0,         false, 0,          0,          JVS_BTN_2,    0}},          // Time Crisis 3
 	{"NM00021", {JVS_BTN_3,    JVS_BTN_RIGHT, 0,         false, 0,          0,          JVS_BTN_LEFT, 0}},          // Cobra The Arcade
 	{"NM00032", {JVS_BTN_3,    JVS_BTN_RIGHT, 0,         false, 0,          0,          JVS_BTN_LEFT, 0}},          // Time Crisis 4
@@ -521,6 +530,8 @@ static void RebuildEffectiveGunMapping()
 	s_effective_gun_mapping = *s_base_gun_mapping;
 	if (s_p2_trigger_override != 0 && s_base_gun_mapping->p2_trigger != 0)
 		s_effective_gun_mapping.p2_trigger = s_p2_trigger_override;
+	if (s_p2_sensor_override != 0 && s_base_gun_mapping->p2_sensor != 0)
+		s_effective_gun_mapping.p2_sensor = s_p2_sensor_override;
 }
 
 static const std::map<std::string, FightingLayout> s_fighting_layouts = {
@@ -1233,6 +1244,29 @@ void do_acjv_packet() {
 				if (FILE* fe = std::fopen("/tmp/vpn_ee.bin", "wb")) { std::fwrite(eeMem->Main, 1, Ps2MemSize::ExposedRam, fe); std::fclose(fe); }
 				if (FILE* fi = std::fopen("/tmp/vpn_iop.bin", "wb")) { std::fwrite(iopMem->Main, 1, Ps2MemSize::ExposedIopRam, fi); std::fclose(fi); }
 				Console.WriteLn("FULLDIAG RAMDUMP wrote /tmp/vpn_ee.bin (EE %u) + /tmp/vpn_iop.bin (IOP %u)", Ps2MemSize::ExposedRam, Ps2MemSize::ExposedIopRam);
+			}
+		}
+	}
+	{ // INTRACE (FULLDIAG): live decode trace — what WE emit (word0/word1) vs what VPN's switch demux
+	  // 0x1a0f54 produces for P1 (fires) vs P2 (dead). The fire dispatcher is statically invisible
+	  // (indirect jalr), so this live read is the only way to see whether P2's trigger bit reaches the
+	  // decode + to resolve the P1 puzzle (P1 fires via our 0x01, yet demux reads P1 trig from 0x80).
+	  // EE demux-output addrs from the dual RAM-dump RE: normP1 0x3cc7b0 / normP2 0x3cc7c0 (per-player
+	  // bit-split, trig normalized to 0x8000), status 0x3cc7d0 (= word0 & 0x7208, native bits preserved),
+	  // decP1 0x3cc784 / decP2 0x3cc794 (the read buffer the gameplay gun consumes).
+		if (m_jvsMode == JVS_MODE::LIGHTGUN) {
+			auto rd16 = [](u32 a) -> u16 {
+				return (a + 1 < Ps2MemSize::ExposedRam) ? *reinterpret_cast<u16*>(&eeMem->Main[a]) : 0xDEAD;
+			};
+			const u16 w0 = m_jvsButtonState[0], w1 = m_jvsButtonState[1];
+			const u16 nP1 = rd16(0x3cc7b0), nP2 = rd16(0x3cc7c0), st = rd16(0x3cc7d0);
+			const u16 dP1 = rd16(0x3cc784), dP2 = rd16(0x3cc794);
+			static u32 s_intrace_last = 0xFFFFFFFFu;
+			const u32 sig = (u32)w0 ^ ((u32)w1 << 3) ^ ((u32)nP1 << 6) ^ ((u32)nP2 << 9) ^ ((u32)st << 12) ^ ((u32)dP2 << 16);
+			if (sig != s_intrace_last) {
+				s_intrace_last = sig;
+				Console.WriteLn("FULLDIAG INTRACE w0=%04X w1=%04X normP1=%04X normP2=%04X stat=%04X decP1=%04X decP2=%04X",
+					w0, w1, nP1, nP2, st, dP1, dP2);
 			}
 		}
 	}
