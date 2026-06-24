@@ -15,6 +15,7 @@
 #include <atomic>
 #include <string>
 #include <cstdlib>
+#include <cstdio>
 
 enum ACJVCMD {
 	UNKNOWN = -2, // unknown CMD, should fire up a warning for developer
@@ -428,6 +429,11 @@ void ACJV::SetDefaultConfiguration(SettingsInterface& si)
 u16 ACJV::Read16(u32 addr) {
     if (addr >= ACJV_RDBASE && addr < 0x124045FE) {
         int x = (addr - ACJV_RDBASE)/2;
+        { // FEASIBILITY PROBE: map each distinct rdbuf offset the game reads once (find the gun-data read site)
+            static bool s_rds[0x320] = {};
+            if (m_jvsMode == JVS_MODE::LIGHTGUN && x >= 0 && x < 0x320 && !s_rds[x]) { s_rds[x] = true;
+                Console.WriteLn("FULLDIAG ACRD off=0x%03x", x); }
+        }
         // El_isra's initial-polling scaffold, disabled (tested OK without it):
         // if (x == 2 || x == 3 || x == 4) return rdbuf.at(x)|1;// initial polling expects these addrs to not be zero
         return (u16)rdbuf.at(x);
@@ -1176,6 +1182,21 @@ void do_acjv_packet() {
 	const u16* wr16 = wrbuf_getu16();
 	u16* rd16 = rdbuf_getu16();
 	rd16[0] = wr16[0];
+	{ // FEASIBILITY PROBE (FULLDIAG): dump the whole ACJV packet (wrbuf, IOP->NAMCO_PCB) in lightgun mode.
+	  // The gameplay gun SHOT comes from the Namco STR gun-board (GunMgrClass/n246JvioNamcoGun*), which
+	  // rides THIS packet OUTSIDE the JVS sub-packets at 0x22/0x122 we already handle. Find that command.
+		if (m_jvsMode == JVS_MODE::LIGHTGUN) {
+			static u32 s_acd = 0;
+			if ((s_acd++ % 90) == 0) {
+				char hex[0x101];
+				for (u32 c = 0; c < ACJV_PACKETSIZE; c += 0x80) {
+					const u32 n = ((ACJV_PACKETSIZE - c) < 0x80) ? (ACJV_PACKETSIZE - c) : 0x80;
+					for (u32 i = 0; i < n; i++) snprintf(hex + i*2, 3, "%02x", wrbuf[c+i]);
+					Console.WriteLn("FULLDIAG ACWR @%03x %s", c, hex);
+				}
+			}
+		}
+	}
 	u16 RootPacketID = wr16[8];
 	if(rd16[0] == 0x3E6F) {
 		// JVFIRM version n246Jvio checks against its own (mismatch stalls boot): BG3=0x210, BG3T=0x213, others 0x208.
