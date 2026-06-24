@@ -243,7 +243,15 @@ namespace EvdevLightgun
 			// rejects anything without ABS_X/Y, so a touchscreen/keyboard that slipped the name
 			// filter still cannot be used as a gun. Flag it so a late "Smoothed P1" can upgrade it.
 			if (s_slots[0].fd < 0 && fallback_path[0] != '\0' && openInto(0, fallback_path))
+			{
 				s_slots[0].from_fallback = true;
+				// Restart the rediscovery window on this no-fallback -> fallback transition, so a late
+				// "Smoothed P1" still gets a full grace window of discover() ticks to upgrade the slot.
+				// Without this the upgrade reuses the launch-time budget and can land in its dead tail
+				// (or after it expires), leaving P1 stranded on the raw fallback. Bounded: re-armed only
+				// when the fallback is (re)grabbed into an empty slot 0, never every frame.
+				s_retry_counter = 0;
+			}
 		}
 
 		void initFromEnv()
