@@ -1259,14 +1259,19 @@ void do_acjv_packet() {
 				return (a + 1 < Ps2MemSize::ExposedRam) ? *reinterpret_cast<u16*>(&eeMem->Main[a]) : 0xDEAD;
 			};
 			const u16 w0 = m_jvsButtonState[0], w1 = m_jvsButtonState[1];
+			// Theory B (aab922a) ROUTING: gun-1 reads raw JVS word gp+0x12, gun-2 reads SEPARATE word
+			// gp+0x1A; fire path read_SYNCH 0x1a0370 -> per-gun buf 0x3CC790 -> bit 0x2000. gp=0x20E970.
+			const u16 r12 = rd16(0x2076CA), r1a = rd16(0x2076D2), g2 = rd16(0x3cc790);
+			// Theory A (a85b7081 bit-split): per-player normalized words + native-preserving status word.
 			const u16 nP1 = rd16(0x3cc7b0), nP2 = rd16(0x3cc7c0), st = rd16(0x3cc7d0);
 			const u16 dP1 = rd16(0x3cc784), dP2 = rd16(0x3cc794);
 			static u32 s_intrace_last = 0xFFFFFFFFu;
-			const u32 sig = (u32)w0 ^ ((u32)w1 << 3) ^ ((u32)nP1 << 6) ^ ((u32)nP2 << 9) ^ ((u32)st << 12) ^ ((u32)dP2 << 16);
+			const u32 sig = (u32)w0 ^ ((u32)w1 << 2) ^ ((u32)r12 << 4) ^ ((u32)r1a << 6) ^ ((u32)g2 << 8)
+				^ ((u32)nP2 << 10) ^ ((u32)st << 12) ^ ((u32)dP2 << 16);
 			if (sig != s_intrace_last) {
 				s_intrace_last = sig;
-				Console.WriteLn("FULLDIAG INTRACE w0=%04X w1=%04X normP1=%04X normP2=%04X stat=%04X decP1=%04X decP2=%04X",
-					w0, w1, nP1, nP2, st, dP1, dP2);
+				Console.WriteLn("FULLDIAG INTRACE w0=%04X w1=%04X raw+12=%04X raw+1a=%04X g2buf=%04X normP1=%04X normP2=%04X stat=%04X decP1=%04X decP2=%04X",
+					w0, w1, r12, r1a, g2, nP1, nP2, st, dP1, dP2);
 			}
 		}
 	}
