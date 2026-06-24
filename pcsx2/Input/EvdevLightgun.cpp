@@ -159,6 +159,19 @@ namespace EvdevLightgun
 			return true;
 		}
 
+		// True if `path` is an absolute pointing device (ABS_X + ABS_Y), checked WITHOUT taking a slot.
+		// Lets an upgrade confirm a "Smoothed PN" candidate is valid before dropping a working fallback.
+		bool probeAbs(const char* path)
+		{
+			const int fd = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+			if (fd < 0)
+				return false;
+			int mn, mx, cur;
+			const bool ok = readAbs(fd, ABS_X, mn, mx, cur) && readAbs(fd, ABS_Y, mn, mx, cur);
+			close(fd);
+			return ok;
+		}
+
 		// Open any not-yet-open slots. Path mode → slot 0 = s_path; name mode → scan
 		// /dev/input/event*: the smoother's "Smoothed P1/P2" mice fill the slots, else a stock
 		// Sinden ("sinden" in the device name) fills slot 0 as a single-gun fallback. A late
@@ -209,7 +222,11 @@ namespace EvdevLightgun
 					if (s_slots[idx].fd >= 0 && !s_slots[idx].from_fallback)
 						continue; // slot already held by a smoother device
 					if (s_slots[idx].fd >= 0)
+					{
+						if (!probeAbs(path))
+							continue; // don't drop a working fallback for an invalid candidate
 						closeSlot(s_slots[idx]); // upgrade: drop the fallback, take the smoother device
+					}
 					if (openInto(idx, path))
 						s_slots[idx].from_fallback = false;
 				}
@@ -338,10 +355,24 @@ namespace EvdevLightgun
 		if (!s_enabled)
 			return;
 
-		// (Re)discover missing slots on the first frame then once per REDISCOVER_INTERVAL,
-		// but only within the bounded grace window (avoids a permanent single-gun rescan-storm).
+		// (Re)discover missing slots on the first frame then once per REDISCOVER_INTERVAL, but only
+		// within the bounded grace window (avoids a permanent single-gun rescan-storm). Also keep
+		// rediscovering while a slot still holds the generic-Sinden FALLBACK, so a late "Smoothed PN"
+		// smoother device can upgrade it even once s_open_count has already reached `want`.
 		const int want = s_path_mode ? 1 : static_cast<int>(NUM_SLOTS);
-		if (s_open_count.load(std::memory_order_relaxed) < want && s_retry_counter < DISCOVERY_GRACE_FRAMES)
+		bool want_rediscover = s_open_count.load(std::memory_order_relaxed) < want;
+		if (!want_rediscover && !s_path_mode)
+		{
+			for (u32 i = 0; i < NUM_SLOTS; i++)
+			{
+				if (s_slots[i].fd >= 0 && s_slots[i].from_fallback)
+				{
+					want_rediscover = true;
+					break;
+				}
+			}
+		}
+		if (want_rediscover && s_retry_counter < DISCOVERY_GRACE_FRAMES)
 		{
 			if ((s_retry_counter++ % REDISCOVER_INTERVAL) == 0)
 				discover();
