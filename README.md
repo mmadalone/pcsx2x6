@@ -49,7 +49,7 @@ and its per-game gun handling are upstream pcsx2x6's.
 4. Bind the gun's trigger to the GunCon2 **Trigger** input in the emulator's input settings.
 5. Run the game's in-arcade **gun calibration** once.
 
-**Updating:** download the latest AppImage from the
+**Updating:** use **Help > Check for Updates** in the emulator, or download the latest AppImage from the
 [Releases](https://github.com/mmadalone/pcsx2x6/releases) page.
 
 ## Status & limitations
