@@ -1,0 +1,18 @@
+{
+  "data": [
+    {
+      "version": "v1.0.0",
+      "publishedAt": "2026-06-24T20:17:25Z",
+      "assets": {
+        "Linux": [
+          {
+            "name": "pcsx2x6-SteamDeck-v1.0.0-x64.AppImage",
+            "url": "https://github.com/mmadalone/pcsx2x6/releases/download/v1.0.0/pcsx2x6-SteamDeck-v1.0.0-x64.AppImage",
+            "size": 59304440,
+            "additionalTags": []
+          }
+        ]
+      }
+    }
+  ]
+}
