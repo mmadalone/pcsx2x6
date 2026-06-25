@@ -359,8 +359,10 @@ namespace usb_lightgun
 	{
 		GunCon2State* us = USB_CONTAINER_OF(dev, GunCon2State, dev);
 
-		if (!us->cursor_path.empty())
-			ImGuiManager::ClearSoftwareCursor(us->GetSoftwarePointerIndex());
+		// Clear the slot the crosshair texture is actually in (authoritative), not a recomputed
+		// GetSoftwarePointerIndex() -- software_cursor_index is the single source of truth.
+		if (us->software_cursor_index >= 0)
+			ImGuiManager::ClearSoftwareCursor(static_cast<u32>(us->software_cursor_index));
 
 		delete us;
 	}
@@ -581,8 +583,10 @@ namespace usb_lightgun
 		if (prev_pointer_index != new_pointer_index || s->cursor_path != cursor_path ||
 			s->cursor_scale != cursor_scale || s->cursor_color != cursor_color)
 		{
-			if (prev_pointer_index != new_pointer_index)
-				ImGuiManager::ClearSoftwareCursor(prev_pointer_index);
+			// Clear the slot actually holding the texture (authoritative); software_cursor_index is
+			// reassigned just below at the SetSoftwareCursor / clear branches.
+			if (prev_pointer_index != new_pointer_index && s->software_cursor_index >= 0)
+				ImGuiManager::ClearSoftwareCursor(static_cast<u32>(s->software_cursor_index));
 
 			// Pointer changed, so need to update software cursor.
 			const bool had_software_cursor = !s->cursor_path.empty();
