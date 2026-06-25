@@ -167,6 +167,7 @@ namespace usb_lightgun
 		// 0..1, not -1..1.
 		std::pair<float, float> GetAbsolutePositionFromRelativeAxes() const;
 		u32 GetSoftwarePointerIndex() const;
+		bool use_relative_aim() const;
 		void UpdateSoftwarePointerPosition();
 	};
 
@@ -389,7 +390,7 @@ namespace usb_lightgun
 	{
 		float pointer_x, pointer_y;
 		const auto& [window_x, window_y] =
-			(has_relative_binds) ? GetAbsolutePositionFromRelativeAxes() : InputManager::GetPointerAbsolutePosition(port);
+			(use_relative_aim()) ? GetAbsolutePositionFromRelativeAxes() : InputManager::GetPointerAbsolutePosition(port);
 		GSTranslateWindowToDisplayCoordinates(window_x, window_y, &pointer_x, &pointer_y);
 
 		s16 pos_x, pos_y;
@@ -441,6 +442,14 @@ namespace usb_lightgun
 			screen_rel_x * ImGuiManager::GetWindowWidth(), screen_rel_y * ImGuiManager::GetWindowHeight());
 	}
 
+	bool GunCon2State::use_relative_aim() const
+	{
+		// Fall back to the relative-axis path ONLY when relative binds exist AND no absolute pointer is
+		// live for this port. A live absolute source (Sinden via EvdevLightgun, or the compositor) then
+		// drives both aim and the crosshair, so a bound-but-idle relative axis can't freeze it.
+		return has_relative_binds && !InputManager::HasReceivedAbsolutePosition(port);
+	}
+
 	u32 GunCon2State::GetSoftwarePointerIndex() const
 	{
 		// Absolute: this port's crosshair/aim follows its own pointer (P1=0, P2=1).
@@ -452,7 +461,9 @@ namespace usb_lightgun
 		if (cursor_path.empty())
 			return;
 
-		const auto& [window_x, window_y] = GetAbsolutePositionFromRelativeAxes();
+		const auto& [window_x, window_y] = use_relative_aim()
+			? GetAbsolutePositionFromRelativeAxes()
+			: InputManager::GetPointerAbsolutePosition(port);
 		ImGuiManager::SetSoftwareCursorPosition(GetSoftwarePointerIndex(), window_x, window_y);
 	}
 

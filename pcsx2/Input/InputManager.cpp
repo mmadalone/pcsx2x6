@@ -169,6 +169,10 @@ struct PointerAxisState
 	float last_value;
 };
 static std::array<std::array<float, static_cast<u8>(InputPointerAxis::Count)>, InputManager::MAX_POINTER_DEVICES> s_host_pointer_positions;
+// Set true once an absolute pointer position arrives for an index (EvdevLightgun in Game Mode, or the
+// Qt compositor in Desktop). Lets the GunCon2 light gun prefer absolute aim and ignore relative-aim
+// binds when a real absolute source is live (set-once latch; the racy read is fine).
+static std::array<std::atomic<bool>, InputManager::MAX_POINTER_DEVICES> s_pointer_abs_received;
 static std::array<std::array<PointerAxisState, static_cast<u8>(InputPointerAxis::Count)>, InputManager::MAX_POINTER_DEVICES>
 	s_pointer_state;
 static std::array<float, 2> s_pointer_axis_speed;
@@ -1480,8 +1484,14 @@ std::pair<float, float> InputManager::GetPointerAbsolutePosition(u32 index)
 		s_host_pointer_positions[index][static_cast<u8>(InputPointerAxis::Y)]);
 }
 
+bool InputManager::HasReceivedAbsolutePosition(u32 index)
+{
+	return index < MAX_POINTER_DEVICES && s_pointer_abs_received[index].load(std::memory_order_relaxed);
+}
+
 void InputManager::UpdatePointerAbsolutePosition(u32 index, float x, float y)
 {
+	s_pointer_abs_received[index].store(true, std::memory_order_relaxed);
 	const float dx = x - std::exchange(s_host_pointer_positions[index][static_cast<u8>(InputPointerAxis::X)], x);
 	const float dy = y - std::exchange(s_host_pointer_positions[index][static_cast<u8>(InputPointerAxis::Y)], y);
 

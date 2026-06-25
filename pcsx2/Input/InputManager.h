@@ -298,6 +298,10 @@ namespace InputManager
 	/// Reads absolute pointer position.
 	std::pair<float, float> GetPointerAbsolutePosition(u32 index);
 
+	/// True once an absolute pointer position has been reported for this index (a real absolute source
+	/// is live). The GunCon2 light gun uses this to prefer absolute aim over bound relative-aim axes.
+	bool HasReceivedAbsolutePosition(u32 index);
+
 	/// Updates absolute pointer position. Can call from UI thread, use when the host only reports absolute coordinates.
 	void UpdatePointerAbsolutePosition(u32 index, float x, float y);
 
