@@ -169,9 +169,10 @@ struct PointerAxisState
 	float last_value;
 };
 static std::array<std::array<float, static_cast<u8>(InputPointerAxis::Count)>, InputManager::MAX_POINTER_DEVICES> s_host_pointer_positions;
-// Set true once an absolute pointer position arrives for an index (EvdevLightgun in Game Mode, or the
-// Qt compositor in Desktop). Lets the GunCon2 light gun prefer absolute aim and ignore relative-aim
-// binds when a real absolute source is live (set-once latch; the racy read is fine).
+// True once an absolute pointer position arrives for an index (EvdevLightgun in Game Mode, or the Qt
+// compositor in Desktop). Lets the GunCon2 light gun prefer the absolute aim + crosshair and ignore
+// relative-aim binds when a real absolute source is live. Set in UpdatePointerAbsolutePosition, cleared
+// in CloseSources (so a later game in the same process starts fresh); the racy read is fine.
 static std::array<std::atomic<bool>, InputManager::MAX_POINTER_DEVICES> s_pointer_abs_received;
 static std::array<std::array<PointerAxisState, static_cast<u8>(InputPointerAxis::Count)>, InputManager::MAX_POINTER_DEVICES>
 	s_pointer_state;
@@ -1784,6 +1785,10 @@ void InputManager::CloseSources()
 		}
 		s_input_sources[i].reset();
 	}
+	// Clear the absolute-pointer latch so a later game in the same process (desktop GUI) starts fresh;
+	// without this an incidental mouse move could pin a port to absolute for the rest of the session.
+	for (auto& received : s_pointer_abs_received)
+		received.store(false, std::memory_order_relaxed);
 }
 
 void InputManager::PollSources()

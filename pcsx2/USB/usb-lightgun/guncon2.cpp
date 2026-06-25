@@ -270,6 +270,10 @@ namespace usb_lightgun
 				if (p->ep->nr == 1)
 				{
 					const auto [pos_x, pos_y] = us->CalculatePosition();
+					// Refresh the software crosshair every poll so it tracks even when relative binds exist but
+					// an absolute pointer is live (the relative-axis handler that normally drives the cursor never
+					// fires under a Sinden gun). No-op when no crosshair image is configured.
+					us->UpdateSoftwarePointerPosition();
 
 					// Forward mouse position to JVS: on-screen = coords, off-screen = (0,0), update sensor bit
 					// TODO: use CalculatePosition() result instead of raw mouse, so Relative Aiming (joystick) works for S246
