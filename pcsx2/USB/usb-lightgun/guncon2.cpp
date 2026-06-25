@@ -130,6 +130,10 @@ namespace usb_lightgun
 		// Configuration
 		//////////////////////////////////////////////////////////////////////////
 		bool has_relative_binds = false;
+		// Slot index of this gun's software crosshair texture, migrated at runtime by SyncSoftwareCursor()
+		// when use_relative_aim() flips so the crosshair follows the live-drawn pointer slot once an
+		// absolute pointer goes live. -1 = no cursor set up.
+		s32 software_cursor_index = -1;
 		bool custom_config = false;
 		u32 screen_width = 640;
 		u32 screen_height = 240;
@@ -169,6 +173,7 @@ namespace usb_lightgun
 		u32 GetSoftwarePointerIndex() const;
 		bool use_relative_aim() const;
 		void UpdateSoftwarePointerPosition();
+		void SyncSoftwareCursor();
 	};
 
 	static const USBDescStrings desc_strings = {
@@ -270,10 +275,10 @@ namespace usb_lightgun
 				if (p->ep->nr == 1)
 				{
 					const auto [pos_x, pos_y] = us->CalculatePosition();
-					// Refresh the software crosshair every poll so it tracks even when relative binds exist but
-					// an absolute pointer is live (the relative-axis handler that normally drives the cursor never
-					// fires under a Sinden gun). No-op when no crosshair image is configured.
-					us->UpdateSoftwarePointerPosition();
+					// Migrate the crosshair to the live-drawn pointer slot once an absolute pointer goes live, so
+					// it keeps tracking with relative binds present (and through the ROM load, after which the live
+					// slot draws itself without further gun polls). No-op once the slot is stable.
+					us->SyncSoftwareCursor();
 
 					// Forward mouse position to JVS: on-screen = coords, off-screen = (0,0), update sensor bit
 					// TODO: use CalculatePosition() result instead of raw mouse, so Relative Aiming (joystick) works for S246
@@ -456,8 +461,9 @@ namespace usb_lightgun
 
 	u32 GunCon2State::GetSoftwarePointerIndex() const
 	{
-		// Absolute: this port's crosshair/aim follows its own pointer (P1=0, P2=1).
-		return has_relative_binds ? (InputManager::MAX_POINTER_DEVICES + port) : port;
+		// A live absolute pointer puts the crosshair on its own live-drawn pointer slot (P1=0, P2=1).
+		// Relative-only (no absolute pointer): a synthetic slot whose position we set explicitly.
+		return use_relative_aim() ? (InputManager::MAX_POINTER_DEVICES + port) : port;
 	}
 
 	void GunCon2State::UpdateSoftwarePointerPosition()
@@ -465,10 +471,25 @@ namespace usb_lightgun
 		if (cursor_path.empty())
 			return;
 
-		const auto& [window_x, window_y] = use_relative_aim()
-			? GetAbsolutePositionFromRelativeAxes()
-			: InputManager::GetPointerAbsolutePosition(port);
+		const auto& [window_x, window_y] = GetAbsolutePositionFromRelativeAxes();
 		ImGuiManager::SetSoftwareCursorPosition(GetSoftwarePointerIndex(), window_x, window_y);
+	}
+
+	void GunCon2State::SyncSoftwareCursor()
+	{
+		// Move this gun's crosshair texture to the slot GetSoftwarePointerIndex() now wants. The wanted slot
+		// flips to the live-drawn pointer slot the moment an absolute pointer goes live (use_relative_aim()
+		// -> false); doing it on the per-poll gun read migrates the cursor before the ROM load, after which
+		// the live slot draws every frame with no further gun polls. Cheap no-op once stable.
+		if (cursor_path.empty())
+			return;
+		const s32 want = static_cast<s32>(GetSoftwarePointerIndex());
+		if (want == software_cursor_index)
+			return;
+		if (software_cursor_index >= 0)
+			ImGuiManager::ClearSoftwareCursor(static_cast<u32>(software_cursor_index));
+		ImGuiManager::SetSoftwareCursor(static_cast<u32>(want), cursor_path, cursor_scale, cursor_color);
+		software_cursor_index = want;
 	}
 
 	const char* GunCon2Device::Name() const
@@ -571,11 +592,13 @@ namespace usb_lightgun
 			if (!s->cursor_path.empty())
 			{
 				ImGuiManager::SetSoftwareCursor(new_pointer_index, s->cursor_path, s->cursor_scale, s->cursor_color);
+				s->software_cursor_index = new_pointer_index;
 				s->UpdateSoftwarePointerPosition();
 			}
 			else if (had_software_cursor)
 			{
 				ImGuiManager::ClearSoftwareCursor(new_pointer_index);
+				s->software_cursor_index = -1;
 			}
 		}
 	}
