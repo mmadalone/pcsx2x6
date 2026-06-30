@@ -717,6 +717,44 @@ namespace usb_lightgun
 		return {};
 	}
 
+	const char* GunCon2RetailDevice::Name() const
+	{
+		return TRANSLATE_NOOP("USB", "GunCon 2");
+	}
+
+	const char* GunCon2RetailDevice::TypeName() const
+	{
+		return "guncon2-retail";
+	}
+
+	std::span<const InputBindingInfo> GunCon2RetailDevice::Bindings(u32 subtype) const
+	{
+		// The FULL upstream GunCon2 binding set (the arcade Light Gun device trims this to
+		// Trigger/A/Start/Select). Retail labels (A/B/C/Start/Select); "Calibration Shot" = Recalibrate,
+		// the bind that lets the in-game calibration shot register and pass the setup screen. All buttons
+		// keep bind_index < BID_RELATIVE_LEFT so SetBindingValue treats them as button bits. The Relative
+		// aim half-axes are present but default-unbound (mouse/lightgun aiming uses the pointer).
+		static constexpr const InputBindingInfo bindings[] = {
+			{"Up", TRANSLATE_NOOP("USB", "D-Pad Up"), nullptr, InputBindingInfo::Type::Button, BID_DPAD_UP, GenericInputBinding::DPadUp},
+			{"Down", TRANSLATE_NOOP("USB", "D-Pad Down"), nullptr, InputBindingInfo::Type::Button, BID_DPAD_DOWN, GenericInputBinding::DPadDown},
+			{"Left", TRANSLATE_NOOP("USB", "D-Pad Left"), nullptr, InputBindingInfo::Type::Button, BID_DPAD_LEFT, GenericInputBinding::DPadLeft},
+			{"Right", TRANSLATE_NOOP("USB", "D-Pad Right"), nullptr, InputBindingInfo::Type::Button, BID_DPAD_RIGHT, GenericInputBinding::DPadRight},
+			{"Trigger", TRANSLATE_NOOP("USB", "Trigger"), nullptr, InputBindingInfo::Type::Button, BID_TRIGGER, GenericInputBinding::R2},
+			{"ShootOffscreen", TRANSLATE_NOOP("USB", "Shoot Offscreen"), nullptr, InputBindingInfo::Type::Button, BID_SHOOT_OFFSCREEN, GenericInputBinding::R1},
+			{"Recalibrate", TRANSLATE_NOOP("USB", "Calibration Shot"), nullptr, InputBindingInfo::Type::Button, BID_RECALIBRATE, GenericInputBinding::Unknown},
+			{"A", TRANSLATE_NOOP("USB", "A"), nullptr, InputBindingInfo::Type::Button, BID_A, GenericInputBinding::Cross},
+			{"B", TRANSLATE_NOOP("USB", "B"), nullptr, InputBindingInfo::Type::Button, BID_B, GenericInputBinding::Circle},
+			{"C", TRANSLATE_NOOP("USB", "C"), nullptr, InputBindingInfo::Type::Button, BID_C, GenericInputBinding::Triangle},
+			{"Select", TRANSLATE_NOOP("USB", "Select"), nullptr, InputBindingInfo::Type::Button, BID_SELECT, GenericInputBinding::Select},
+			{"Start", TRANSLATE_NOOP("USB", "Start"), nullptr, InputBindingInfo::Type::Button, BID_START, GenericInputBinding::Start},
+			{"RelativeLeft", TRANSLATE_NOOP("USB", "Relative Left"), nullptr, InputBindingInfo::Type::HalfAxis, BID_RELATIVE_LEFT, GenericInputBinding::Unknown},
+			{"RelativeRight", TRANSLATE_NOOP("USB", "Relative Right"), nullptr, InputBindingInfo::Type::HalfAxis, BID_RELATIVE_RIGHT, GenericInputBinding::Unknown},
+			{"RelativeUp", TRANSLATE_NOOP("USB", "Relative Up"), nullptr, InputBindingInfo::Type::HalfAxis, BID_RELATIVE_UP, GenericInputBinding::Unknown},
+			{"RelativeDown", TRANSLATE_NOOP("USB", "Relative Down"), nullptr, InputBindingInfo::Type::HalfAxis, BID_RELATIVE_DOWN, GenericInputBinding::Unknown},
+		};
+		return bindings;
+	}
+
 	bool GunCon2Device::Freeze(USBDevice* dev, StateWrapper& sw) const
 	{
 		GunCon2State* s = USB_CONTAINER_OF(dev, GunCon2State, dev);

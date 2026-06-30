@@ -82,6 +82,7 @@ void RegisterDevice::Register()
 	inst.Add(DEVTYPE_PRINTER, new usb_printer::PrinterDevice());
 	inst.Add(DEVTYPE_KEYBOARDMANIA, new usb_pad::KeyboardmaniaDevice());
 	inst.Add(DEVTYPE_GUNCON2, new usb_lightgun::GunCon2Device());
+	inst.Add(DEVTYPE_GUNCON2_RETAIL, new usb_lightgun::GunCon2RetailDevice());
 	inst.Add(DEVTYPE_GAMETRAK, new usb_pad::GametrakDevice());
 	inst.Add(DEVTYPE_REALPLAY, new usb_pad::RealPlayDevice());
 	inst.Add(DEVTYPE_TRAIN, new usb_pad::TrainDevice());
