@@ -486,10 +486,15 @@ namespace usb_lightgun
 		if (cursor_path.empty())
 			return;
 		const s32 want = static_cast<s32>(GetSoftwarePointerIndex());
-		if (want == software_cursor_index)
-			return;
-		if (software_cursor_index >= 0)
+		// Clear the old slot only when the wanted index actually moved.
+		if (software_cursor_index >= 0 && software_cursor_index != want)
 			ImGuiManager::ClearSoftwareCursor(static_cast<u32>(software_cursor_index));
+		// Re-assert every poll instead of early-returning on want == software_cursor_index.
+		// ImGuiManager dedups an identical path+scale+color, so this is a no-op once the cursor is
+		// live (P1 is byte-identical), but it RECOVERS a SetSoftwareCursor dispatch lost to the
+		// USB-open / GS-open race - the P2 (port 1) case where the first dispatch lands before the GS
+		// thread is up, leaving its slot permanently unregistered (no red crosshair). Once the game
+		// polls port 1 with the GS thread live, this re-dispatch registers the texture.
 		ImGuiManager::SetSoftwareCursor(static_cast<u32>(want), cursor_path, cursor_scale, cursor_color);
 		software_cursor_index = want;
 	}
