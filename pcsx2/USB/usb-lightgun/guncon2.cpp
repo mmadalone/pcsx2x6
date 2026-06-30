@@ -486,15 +486,10 @@ namespace usb_lightgun
 		if (cursor_path.empty())
 			return;
 		const s32 want = static_cast<s32>(GetSoftwarePointerIndex());
-		// Clear the old slot only when the wanted index actually moved.
-		if (software_cursor_index >= 0 && software_cursor_index != want)
+		if (want == software_cursor_index)
+			return;
+		if (software_cursor_index >= 0)
 			ImGuiManager::ClearSoftwareCursor(static_cast<u32>(software_cursor_index));
-		// Re-assert every poll instead of early-returning on want == software_cursor_index.
-		// ImGuiManager dedups an identical path+scale+color, so this is a no-op once the cursor is
-		// live (P1 is byte-identical), but it RECOVERS a SetSoftwareCursor dispatch lost to the
-		// USB-open / GS-open race - the P2 (port 1) case where the first dispatch lands before the GS
-		// thread is up, leaving its slot permanently unregistered (no red crosshair). Once the game
-		// polls port 1 with the GS thread live, this re-dispatch registers the texture.
 		ImGuiManager::SetSoftwareCursor(static_cast<u32>(want), cursor_path, cursor_scale, cursor_color);
 		software_cursor_index = want;
 	}
@@ -585,30 +580,29 @@ namespace usb_lightgun
 
 		const s32 new_pointer_index = s->GetSoftwarePointerIndex();
 
-		if (prev_pointer_index != new_pointer_index || s->cursor_path != cursor_path ||
-			s->cursor_scale != cursor_scale || s->cursor_color != cursor_color)
-		{
-			// Clear the slot actually holding the texture (authoritative); software_cursor_index is
-			// reassigned just below at the SetSoftwareCursor / clear branches.
-			if (prev_pointer_index != new_pointer_index && s->software_cursor_index >= 0)
-				ImGuiManager::ClearSoftwareCursor(static_cast<u32>(s->software_cursor_index));
+		// De-coupled re-assert (no outer change-guard): always re-assert this port's software cursor
+		// from the device's confirmed state. SetSoftwareCursor is idempotent (ImGuiManager dedups an
+		// identical path+scale+color, no texture rebuild), so P1 stays byte-identical, while P2
+		// (slot 1) self-heals on the 2nd UpdateSettings round (GS up) even if the 1st GS dispatch was
+		// lost to the USB-open race. This is the on-device-proven fix from deck-patches-fulldiag
+		// (ed4b7675e); the old change-guard skipped the round-2 retry and stranded the red crosshair.
+		if (prev_pointer_index != new_pointer_index && s->software_cursor_index >= 0)
+			ImGuiManager::ClearSoftwareCursor(static_cast<u32>(s->software_cursor_index));
 
-			// Pointer changed, so need to update software cursor.
-			const bool had_software_cursor = !s->cursor_path.empty();
-			s->cursor_path = std::move(cursor_path);
-			s->cursor_scale = cursor_scale;
-			s->cursor_color = cursor_color;
-			if (!s->cursor_path.empty())
-			{
-				ImGuiManager::SetSoftwareCursor(new_pointer_index, s->cursor_path, s->cursor_scale, s->cursor_color);
-				s->software_cursor_index = new_pointer_index;
-				s->UpdateSoftwarePointerPosition();
-			}
-			else if (had_software_cursor)
-			{
-				ImGuiManager::ClearSoftwareCursor(new_pointer_index);
-				s->software_cursor_index = -1;
-			}
+		const bool had_software_cursor = !s->cursor_path.empty();
+		s->cursor_path = std::move(cursor_path);
+		s->cursor_scale = cursor_scale;
+		s->cursor_color = cursor_color;
+		if (!s->cursor_path.empty())
+		{
+			ImGuiManager::SetSoftwareCursor(new_pointer_index, s->cursor_path, s->cursor_scale, s->cursor_color);
+			s->software_cursor_index = new_pointer_index;
+			s->UpdateSoftwarePointerPosition();
+		}
+		else if (had_software_cursor)
+		{
+			ImGuiManager::ClearSoftwareCursor(new_pointer_index);
+			s->software_cursor_index = -1;
 		}
 	}
 
