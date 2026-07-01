@@ -339,22 +339,6 @@ namespace usb_lightgun
 						out.pos_y = 0;
 					}
 
-					// GUNDIAG (temporary): per-port gun-report trace to find why P2 calibration stalls.
-					// Logs while a button is held or the calibration timer runs, plus ~1/sec idle.
-					// Grep emulog.txt for GUNDIAG. Remove before shipping.
-					{
-						static u32 s_gundiag_n[2] = {0, 0};
-						if (us->port < 2)
-						{
-							const bool g_recal = (us->button_state & (1u << BID_RECALIBRATE)) != 0;
-							const bool g_trig = (us->button_state & (1u << BID_TRIGGER)) != 0;
-							if (g_recal || g_trig || us->calibration_timer > 0 || (s_gundiag_n[us->port]++ % 120u) == 0)
-								Console.WriteLn("GUNDIAG port=%u btn=0x%04x trig=%d recal=%d caltmr=%u calc=(%d,%d) rep=(%d,%d)",
-									us->port, us->button_state, static_cast<int>(g_trig), static_cast<int>(g_recal),
-									us->calibration_timer, static_cast<int>(pos_x), static_cast<int>(pos_y),
-									static_cast<int>(out.pos_x), static_cast<int>(out.pos_y));
-						}
-					}
 					usb_packet_copy(p, &out, sizeof(out));
 					break;
 				}
