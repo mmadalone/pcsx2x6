@@ -764,6 +764,9 @@
     <QtUi Include="Settings\USBBindingWidget_GunCon2.ui">
       <Filter>Settings</Filter>
     </QtUi>
+    <QtUi Include="Settings\USBBindingWidget_GunCon2Retail.ui">
+      <Filter>Settings</Filter>
+    </QtUi>
     <QtUi Include="Settings\USBBindingWidget_RealPlay.ui">
       <Filter>Settings</Filter>
     </QtUi>

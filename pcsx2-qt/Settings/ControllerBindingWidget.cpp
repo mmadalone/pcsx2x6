@@ -30,6 +30,7 @@
 #include "ui_USBBindingWidget_Gametrak.h"
 #include "ui_USBBindingWidget_GTForce.h"
 #include "ui_USBBindingWidget_GunCon2.h"
+#include "ui_USBBindingWidget_GunCon2Retail.h"
 #include "ui_USBBindingWidget_RealPlay.h"
 #include "ui_USBBindingWidget_RyojouhenCon.h"
 #include "ui_USBBindingWidget_ShinkansenCon.h"
@@ -1036,6 +1037,7 @@ QIcon USBDeviceWidget::getIcon() const
 		{"printer", "printer-line"}, // Printer
 		{"Keyboardmania", "keyboardmania-line"}, // KeyboardMania
 		{"guncon2", "guncon2-line"}, // GunCon 2
+		{"guncon2-retail", "guncon2-line"}, // GunCon 2 (retail)
 		{"DJTurntable", "dj-hero-line"}, // DJ Hero TurnTable
 		{"Gametrak", "gametrak-line"}, // Gametrak Device
 		{"RealPlay", "realplay-sphere-line"}, // RealPlay Device
@@ -1431,9 +1433,16 @@ USBBindingWidget* USBBindingWidget::createInstance(
 		Ui::USBBindingWidget_Gametrak().setupUi(widget);
 		has_template = true;
 	}
-	else if (type == "guncon2")
+	else if (type == "guncon2" || type == "guncon2-retail")
 	{
-		Ui::USBBindingWidget_GunCon2().setupUi(widget);
+		// Arcade "guncon2" (Light Gun) and retail "guncon2-retail" (GunCon 2) share this page: only
+		// the bind template differs (the retail device exposes the full D-Pad/A/B/C/ShootOffscreen/
+		// Calibration Shot set). The crosshair + Sinden block below is device-agnostic - its keys are
+		// prefixed by parent->getDeviceType(), so each device writes its own cursor_* namespace.
+		if (type == "guncon2-retail")
+			Ui::USBBindingWidget_GunCon2Retail().setupUi(widget);
+		else
+			Ui::USBBindingWidget_GunCon2().setupUi(widget);
 		has_template = true;
 
 		// Embed crosshair settings directly on the bindings page (no Settings subtab).

@@ -376,6 +376,7 @@
     <QtUi Include="Settings\USBBindingWidget_Gametrak.ui" />
     <QtUi Include="Settings\USBBindingWidget_GTForce.ui" />
     <QtUi Include="Settings\USBBindingWidget_GunCon2.ui" />
+    <QtUi Include="Settings\USBBindingWidget_GunCon2Retail.ui" />
     <QtUi Include="Settings\USBBindingWidget_RealPlay.ui" />
     <QtUi Include="Settings\USBBindingWidget_RyojouhenCon.ui" />
     <QtUi Include="Settings\USBBindingWidget_ShinkansenCon.ui" />

@@ -178,6 +178,7 @@ target_sources(pcsx2-qt PRIVATE
 	Settings/USBBindingWidget_DrivingForce.ui
 	Settings/USBBindingWidget_GTForce.ui
 	Settings/USBBindingWidget_GunCon2.ui
+	Settings/USBBindingWidget_GunCon2Retail.ui
 	Settings/USBBindingWidget_RyojouhenCon.ui
 	Settings/USBBindingWidget_ShinkansenCon.ui
 	Debugger/AnalysisOptionsDialog.cpp

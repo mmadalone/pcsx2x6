@@ -1,0 +1,411 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>USBBindingWidget_GunCon2Retail</class>
+ <widget class="QWidget" name="USBBindingWidget_GunCon2Retail">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1000</width>
+    <height>420</height>
+   </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="MinimumExpanding" vsizetype="Preferred">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>1000</width>
+    <height>420</height>
+   </size>
+  </property>
+  <layout class="QGridLayout" name="gridLayout_main">
+   <item row="0" column="0" rowspan="2">
+    <spacer name="horizontalSpacer_left">
+     <property name="orientation">
+      <enum>Qt::Orientation::Horizontal</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>20</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+   <item row="0" column="1">
+    <widget class="QGroupBox" name="grp_DPad">
+     <property name="title">
+      <string>D-Pad</string>
+     </property>
+     <layout class="QGridLayout" name="lay_DPad">
+      <item row="0" column="1">
+       <widget class="QGroupBox" name="grp_Up">
+        <property name="title"><string>Up</string></property>
+        <layout class="QGridLayout" name="lay_Up">
+         <property name="leftMargin"><number>6</number></property>
+         <property name="topMargin"><number>6</number></property>
+         <property name="rightMargin"><number>6</number></property>
+         <property name="bottomMargin"><number>6</number></property>
+         <item row="0" column="0">
+          <widget class="InputBindingWidget" name="Up">
+           <property name="minimumSize"><size><width>100</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>140</width><height>16777215</height></size></property>
+           <property name="text"><string notr="true">PushButton</string></property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QGroupBox" name="grp_Left">
+        <property name="title"><string>Left</string></property>
+        <layout class="QGridLayout" name="lay_Left">
+         <property name="leftMargin"><number>6</number></property>
+         <property name="topMargin"><number>6</number></property>
+         <property name="rightMargin"><number>6</number></property>
+         <property name="bottomMargin"><number>6</number></property>
+         <item row="0" column="0">
+          <widget class="InputBindingWidget" name="Left">
+           <property name="minimumSize"><size><width>100</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>140</width><height>16777215</height></size></property>
+           <property name="text"><string notr="true">PushButton</string></property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="1" column="2">
+       <widget class="QGroupBox" name="grp_Right">
+        <property name="title"><string>Right</string></property>
+        <layout class="QGridLayout" name="lay_Right">
+         <property name="leftMargin"><number>6</number></property>
+         <property name="topMargin"><number>6</number></property>
+         <property name="rightMargin"><number>6</number></property>
+         <property name="bottomMargin"><number>6</number></property>
+         <item row="0" column="0">
+          <widget class="InputBindingWidget" name="Right">
+           <property name="minimumSize"><size><width>100</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>140</width><height>16777215</height></size></property>
+           <property name="text"><string notr="true">PushButton</string></property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QGroupBox" name="grp_Down">
+        <property name="title"><string>Down</string></property>
+        <layout class="QGridLayout" name="lay_Down">
+         <property name="leftMargin"><number>6</number></property>
+         <property name="topMargin"><number>6</number></property>
+         <property name="rightMargin"><number>6</number></property>
+         <property name="bottomMargin"><number>6</number></property>
+         <item row="0" column="0">
+          <widget class="InputBindingWidget" name="Down">
+           <property name="minimumSize"><size><width>100</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>140</width><height>16777215</height></size></property>
+           <property name="text"><string notr="true">PushButton</string></property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="0" column="2">
+    <widget class="QGroupBox" name="grp_Buttons">
+     <property name="title">
+      <string>Buttons</string>
+     </property>
+     <layout class="QGridLayout" name="lay_Buttons">
+      <item row="0" column="0">
+       <widget class="QGroupBox" name="grp_Trigger">
+        <property name="title"><string>Trigger</string></property>
+        <layout class="QGridLayout" name="lay_Trigger">
+         <property name="leftMargin"><number>6</number></property>
+         <property name="topMargin"><number>6</number></property>
+         <property name="rightMargin"><number>6</number></property>
+         <property name="bottomMargin"><number>6</number></property>
+         <item row="0" column="0">
+          <widget class="InputBindingWidget" name="Trigger">
+           <property name="minimumSize"><size><width>180</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>300</width><height>16777215</height></size></property>
+           <property name="text"><string notr="true">PushButton</string></property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QGroupBox" name="grp_ShootOffscreen">
+        <property name="title"><string>Shoot Offscreen</string></property>
+        <layout class="QGridLayout" name="lay_ShootOffscreen">
+         <property name="leftMargin"><number>6</number></property>
+         <property name="topMargin"><number>6</number></property>
+         <property name="rightMargin"><number>6</number></property>
+         <property name="bottomMargin"><number>6</number></property>
+         <item row="0" column="0">
+          <widget class="InputBindingWidget" name="ShootOffscreen">
+           <property name="minimumSize"><size><width>180</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>300</width><height>16777215</height></size></property>
+           <property name="text"><string notr="true">PushButton</string></property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QGroupBox" name="grp_Recalibrate">
+        <property name="title"><string>Calibration Shot</string></property>
+        <layout class="QGridLayout" name="lay_Recalibrate">
+         <property name="leftMargin"><number>6</number></property>
+         <property name="topMargin"><number>6</number></property>
+         <property name="rightMargin"><number>6</number></property>
+         <property name="bottomMargin"><number>6</number></property>
+         <item row="0" column="0">
+          <widget class="InputBindingWidget" name="Recalibrate">
+           <property name="minimumSize"><size><width>180</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>300</width><height>16777215</height></size></property>
+           <property name="text"><string notr="true">PushButton</string></property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QGroupBox" name="grp_A">
+        <property name="title"><string>A</string></property>
+        <layout class="QGridLayout" name="lay_A">
+         <property name="leftMargin"><number>6</number></property>
+         <property name="topMargin"><number>6</number></property>
+         <property name="rightMargin"><number>6</number></property>
+         <property name="bottomMargin"><number>6</number></property>
+         <item row="0" column="0">
+          <widget class="InputBindingWidget" name="A">
+           <property name="minimumSize"><size><width>180</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>300</width><height>16777215</height></size></property>
+           <property name="text"><string notr="true">PushButton</string></property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QGroupBox" name="grp_B">
+        <property name="title"><string>B</string></property>
+        <layout class="QGridLayout" name="lay_B">
+         <property name="leftMargin"><number>6</number></property>
+         <property name="topMargin"><number>6</number></property>
+         <property name="rightMargin"><number>6</number></property>
+         <property name="bottomMargin"><number>6</number></property>
+         <item row="0" column="0">
+          <widget class="InputBindingWidget" name="B">
+           <property name="minimumSize"><size><width>180</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>300</width><height>16777215</height></size></property>
+           <property name="text"><string notr="true">PushButton</string></property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QGroupBox" name="grp_C">
+        <property name="title"><string>C</string></property>
+        <layout class="QGridLayout" name="lay_C">
+         <property name="leftMargin"><number>6</number></property>
+         <property name="topMargin"><number>6</number></property>
+         <property name="rightMargin"><number>6</number></property>
+         <property name="bottomMargin"><number>6</number></property>
+         <item row="0" column="0">
+          <widget class="InputBindingWidget" name="C">
+           <property name="minimumSize"><size><width>180</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>300</width><height>16777215</height></size></property>
+           <property name="text"><string notr="true">PushButton</string></property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QGroupBox" name="grp_Start">
+        <property name="title"><string>Start</string></property>
+        <layout class="QGridLayout" name="lay_Start">
+         <property name="leftMargin"><number>6</number></property>
+         <property name="topMargin"><number>6</number></property>
+         <property name="rightMargin"><number>6</number></property>
+         <property name="bottomMargin"><number>6</number></property>
+         <item row="0" column="0">
+          <widget class="InputBindingWidget" name="Start">
+           <property name="minimumSize"><size><width>180</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>300</width><height>16777215</height></size></property>
+           <property name="text"><string notr="true">PushButton</string></property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <widget class="QGroupBox" name="grp_Select">
+        <property name="title"><string>Select</string></property>
+        <layout class="QGridLayout" name="lay_Select">
+         <property name="leftMargin"><number>6</number></property>
+         <property name="topMargin"><number>6</number></property>
+         <property name="rightMargin"><number>6</number></property>
+         <property name="bottomMargin"><number>6</number></property>
+         <item row="0" column="0">
+          <widget class="InputBindingWidget" name="Select">
+           <property name="minimumSize"><size><width>180</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>300</width><height>16777215</height></size></property>
+           <property name="text"><string notr="true">PushButton</string></property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="0" column="3">
+    <widget class="QGroupBox" name="grp_Relative">
+     <property name="title">
+      <string>Relative Aiming</string>
+     </property>
+     <layout class="QGridLayout" name="lay_Relative">
+      <item row="0" column="1">
+       <widget class="QGroupBox" name="grp_RelUp">
+        <property name="title"><string>Up</string></property>
+        <layout class="QGridLayout" name="lay_RelUp">
+         <property name="leftMargin"><number>6</number></property>
+         <property name="topMargin"><number>6</number></property>
+         <property name="rightMargin"><number>6</number></property>
+         <property name="bottomMargin"><number>6</number></property>
+         <item row="0" column="0">
+          <widget class="InputBindingWidget" name="RelativeUp">
+           <property name="minimumSize"><size><width>100</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>140</width><height>16777215</height></size></property>
+           <property name="text"><string notr="true">PushButton</string></property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QGroupBox" name="grp_RelLeft">
+        <property name="title"><string>Left</string></property>
+        <layout class="QGridLayout" name="lay_RelLeft">
+         <property name="leftMargin"><number>6</number></property>
+         <property name="topMargin"><number>6</number></property>
+         <property name="rightMargin"><number>6</number></property>
+         <property name="bottomMargin"><number>6</number></property>
+         <item row="0" column="0">
+          <widget class="InputBindingWidget" name="RelativeLeft">
+           <property name="minimumSize"><size><width>100</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>140</width><height>16777215</height></size></property>
+           <property name="text"><string notr="true">PushButton</string></property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="1" column="2">
+       <widget class="QGroupBox" name="grp_RelRight">
+        <property name="title"><string>Right</string></property>
+        <layout class="QGridLayout" name="lay_RelRight">
+         <property name="leftMargin"><number>6</number></property>
+         <property name="topMargin"><number>6</number></property>
+         <property name="rightMargin"><number>6</number></property>
+         <property name="bottomMargin"><number>6</number></property>
+         <item row="0" column="0">
+          <widget class="InputBindingWidget" name="RelativeRight">
+           <property name="minimumSize"><size><width>100</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>140</width><height>16777215</height></size></property>
+           <property name="text"><string notr="true">PushButton</string></property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QGroupBox" name="grp_RelDown">
+        <property name="title"><string>Down</string></property>
+        <layout class="QGridLayout" name="lay_RelDown">
+         <property name="leftMargin"><number>6</number></property>
+         <property name="topMargin"><number>6</number></property>
+         <property name="rightMargin"><number>6</number></property>
+         <property name="bottomMargin"><number>6</number></property>
+         <item row="0" column="0">
+          <widget class="InputBindingWidget" name="RelativeDown">
+           <property name="minimumSize"><size><width>100</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>140</width><height>16777215</height></size></property>
+           <property name="text"><string notr="true">PushButton</string></property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="0" column="4" rowspan="2">
+    <spacer name="horizontalSpacer_right">
+     <property name="orientation">
+      <enum>Qt::Orientation::Horizontal</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>20</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+   <item row="1" column="0" colspan="5">
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Orientation::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>40</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>InputBindingWidget</class>
+   <extends>QPushButton</extends>
+   <header>Settings/InputBindingWidget.h</header>
+  </customwidget>
+ </customwidgets>
+ <tabstops>
+  <tabstop>Trigger</tabstop>
+  <tabstop>ShootOffscreen</tabstop>
+  <tabstop>Recalibrate</tabstop>
+  <tabstop>A</tabstop>
+  <tabstop>B</tabstop>
+  <tabstop>C</tabstop>
+  <tabstop>Start</tabstop>
+  <tabstop>Select</tabstop>
+  <tabstop>Up</tabstop>
+  <tabstop>Down</tabstop>
+  <tabstop>Left</tabstop>
+  <tabstop>Right</tabstop>
+  <tabstop>RelativeUp</tabstop>
+  <tabstop>RelativeDown</tabstop>
+  <tabstop>RelativeLeft</tabstop>
+  <tabstop>RelativeRight</tabstop>
+ </tabstops>
+ <resources>
+  <include location="../resources/resources.qrc"/>
+ </resources>
+ <connections/>
+</ui>
