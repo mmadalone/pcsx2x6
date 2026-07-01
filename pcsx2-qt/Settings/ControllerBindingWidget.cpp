@@ -1499,8 +1499,11 @@ USBBindingWidget* USBBindingWidget::createInstance(
 			int spacerRow = mainLayout->rowCount();
 			mainLayout->addWidget(crosshairGroup, spacerRow, 0, 1, mainLayout->columnCount());
 
-			// Sinden Lightgun Border — only on USB Port 1
-			if (parent->getPortNumber() == 0)
+			// Sinden Lightgun Border - only on USB Port 1, and only for the ARCADE "guncon2"
+			// device: the software border renders only in ACJV LIGHTGUN mode (DrawSindenBorder),
+			// which is set only by the .ACGAME handler, so it would be a dead control for the
+			// retail "guncon2-retail" device (retail PS2 discs never enter LIGHTGUN mode).
+			if (parent->getPortNumber() == 0 && type == "guncon2")
 			{
 				QGroupBox* sindenGroup = new QGroupBox(qApp->translate("USB", "Light Gun Border (Sinden)"), widget);
 				QGridLayout* sindenLayout = new QGridLayout(sindenGroup);
