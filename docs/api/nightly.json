@@ -1,18 +1,18 @@
 {
-  "data": [
-    {
-      "version": "v1.0.3",
-      "publishedAt": "2026-06-25T05:35:19Z",
-      "assets": {
-        "Linux": [
-          {
-            "name": "pcsx2x6-SteamDeck-v1.0.3-x64.AppImage",
-            "url": "https://github.com/mmadalone/pcsx2x6/releases/download/v1.0.3/pcsx2x6-SteamDeck-v1.0.3-x64.AppImage",
-            "size": 59300344,
-            "additionalTags": []
-          }
-        ]
-      }
-    }
-  ]
+    "data": [
+        {
+            "version": "v1.0.4",
+            "publishedAt": "2026-07-01T07:04:09Z",
+            "assets": {
+                "Linux": [
+                    {
+                        "name": "pcsx2x6-SteamDeck-v1.0.4-x64.AppImage",
+                        "url": "https://github.com/mmadalone/pcsx2x6/releases/download/v1.0.4/pcsx2x6-SteamDeck-v1.0.4-x64.AppImage",
+                        "size": 59320824,
+                        "additionalTags": []
+                    }
+                ]
+            }
+        }
+    ]
 }
